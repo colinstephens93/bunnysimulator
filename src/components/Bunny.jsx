@@ -53,8 +53,8 @@ const Bunny = forwardRef(({ comfort = 40, irritation = 10, onZoneHit }, ref) => 
     group.current.rotation.x = -lean
   })
 
-  const furColor = '#f5e6c8'
-  const shellOpacities = [0.35, 0.22, 0.12]
+  const furColor = '#f3e0c0'
+  const shellOpacities = [0.28, 0.16, 0.08]
 
   return (
     <group ref={group} position={[0, 0.35, 0]}>
@@ -74,35 +74,35 @@ const Bunny = forwardRef(({ comfort = 40, irritation = 10, onZoneHit }, ref) => 
 
       {/* Base body + shell fur layers */}
       <mesh ref={body} position={[0, 0.25, 0]} castShadow>
-        <sphereGeometry args={[0.38, 32, 32]} />
-        <meshStandardMaterial color={furColor} roughness={0.75} metalness={0.02} />
+        <sphereGeometry args={[0.4, 40, 40]} />
+        <meshStandardMaterial color={furColor} roughness={0.82} metalness={0.0} />
       </mesh>
       {shellOpacities.map((op, i) => (
-        <mesh key={`body-shell-${i}`} position={[0, 0.25, 0]} scale={1 + (i + 1) * 0.018}>
-          <sphereGeometry args={[0.38, 24, 24]} />
+        <mesh key={`body-shell-${i}`} position={[0, 0.25, 0]} scale={1 + (i + 1) * 0.022}>
+          <sphereGeometry args={[0.4, 28, 28]} />
           <meshStandardMaterial
             color={furColor}
             transparent
             opacity={op}
-            roughness={0.9}
+            roughness={0.95}
             depthWrite={false}
           />
         </mesh>
       ))}
 
       {/* Base head + shell fur layers */}
-      <mesh position={[0, 0.62, 0.12]} castShadow>
-        <sphereGeometry args={[0.26, 32, 32]} />
-        <meshStandardMaterial color={furColor} roughness={0.7} />
+      <mesh position={[0, 0.64, 0.1]} castShadow>
+        <sphereGeometry args={[0.27, 40, 40]} />
+        <meshStandardMaterial color={furColor} roughness={0.78} />
       </mesh>
       {shellOpacities.map((op, i) => (
-        <mesh key={`head-shell-${i}`} position={[0, 0.62, 0.12]} scale={1 + (i + 1) * 0.016}>
-          <sphereGeometry args={[0.26, 24, 24]} />
+        <mesh key={`head-shell-${i}`} position={[0, 0.64, 0.1]} scale={1 + (i + 1) * 0.018}>
+          <sphereGeometry args={[0.27, 28, 28]} />
           <meshStandardMaterial
             color={furColor}
             transparent
             opacity={op}
-            roughness={0.9}
+            roughness={0.95}
             depthWrite={false}
           />
         </mesh>
@@ -110,30 +110,30 @@ const Bunny = forwardRef(({ comfort = 40, irritation = 10, onZoneHit }, ref) => 
 
       {/* Ears */}
       <group ref={ears}>
-        <mesh position={[-0.12, 0.92, 0.05]} rotation={[0, 0, -0.15]} castShadow>
-          <capsuleGeometry args={[0.05, 0.28, 8, 16]} />
-          <meshStandardMaterial color="#f0dcc0" />
+        <mesh position={[-0.13, 0.95, 0.04]} rotation={[0.15, 0, -0.18]} castShadow>
+          <capsuleGeometry args={[0.045, 0.32, 12, 16]} />
+          <meshStandardMaterial color="#edd5b8" roughness={0.8} />
         </mesh>
-        <mesh position={[0.12, 0.92, 0.05]} rotation={[0, 0, 0.15]} castShadow>
-          <capsuleGeometry args={[0.05, 0.28, 8, 16]} />
-          <meshStandardMaterial color="#f0dcc0" />
+        <mesh position={[0.13, 0.95, 0.04]} rotation={[0.15, 0, 0.18]} castShadow>
+          <capsuleGeometry args={[0.045, 0.32, 12, 16]} />
+          <meshStandardMaterial color="#edd5b8" roughness={0.8} />
         </mesh>
       </group>
 
       {/* Eyes */}
-      <mesh position={[-0.1, 0.68, 0.22]} scale={[1, comfort > 72 ? 0.3 : 1, 1]}>
-        <sphereGeometry args={[0.04, 16, 16]} />
-        <meshStandardMaterial color="#2a1a12" />
+      <mesh position={[-0.11, 0.7, 0.24]} scale={[1, comfort > 72 ? 0.28 : 1, 1]}>
+        <sphereGeometry args={[0.042, 16, 16]} />
+        <meshStandardMaterial color="#1a100c" roughness={0.3} />
       </mesh>
-      <mesh position={[0.1, 0.68, 0.22]} scale={[1, comfort > 72 ? 0.3 : 1, 1]}>
-        <sphereGeometry args={[0.04, 16, 16]} />
-        <meshStandardMaterial color="#2a1a12" />
+      <mesh position={[0.11, 0.7, 0.24]} scale={[1, comfort > 72 ? 0.28 : 1, 1]}>
+        <sphereGeometry args={[0.042, 16, 16]} />
+        <meshStandardMaterial color="#1a100c" roughness={0.3} />
       </mesh>
 
       {/* Nose */}
-      <mesh position={[0, 0.58, 0.28]}>
-        <sphereGeometry args={[0.035, 16, 16]} />
-        <meshStandardMaterial color="#e8c4b0" />
+      <mesh position={[0, 0.59, 0.3]}>
+        <sphereGeometry args={[0.032, 16, 16]} />
+        <meshStandardMaterial color="#e6c2ae" roughness={0.6} />
       </mesh>
     </group>
   )
