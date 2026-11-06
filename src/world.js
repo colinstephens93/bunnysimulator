@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { useGame } from './store'
 
 // Play-area limits for each scene (bunny + toys stay inside these).
 export const BOUNDS = {
@@ -25,6 +26,8 @@ export const world = {
     radius: 0.075
   },
   petting: false,
+  holdCamera: false,
+  gesture: null,
   started: false,
   controls: null,
   commands: []
@@ -46,4 +49,13 @@ export function setScene(scene) {
   world.bounds = BOUNDS[scene]
   clampToBounds(world.bunny.pos, 0.2)
   world.ball.active = false
+}
+
+// Start a tap/swipe gesture on the play surface or the ball. The window
+// pointerup handler in App decides whether it was a tap or a fling.
+export function startGesture(e, onBall) {
+  const tool = useGame.getState().tool
+  world.gesture = { x: e.clientX, y: e.clientY, t: performance.now(), point: e.point.clone(), onBall }
+  // Hold the camera still while swiping the ball around.
+  if (tool === 'toy' || onBall) world.holdCamera = true
 }

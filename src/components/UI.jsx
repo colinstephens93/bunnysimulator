@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useGame, bondLevel, BOND_LEVELS, TRICKS, moodOf } from '../store'
+import { useGame, bondLevel, BOND_LEVELS, TRICKS, ACCESSORIES, GOAL_POOL, moodOf } from '../store'
 import { sendCommand } from '../world'
 import { placeBowl } from './Toys'
 import { sfx } from '../audio'
@@ -9,7 +9,7 @@ const TOOLS = [
   { id: 'pet', label: 'Pet', icon: 'hand', tip: 'Stroke slowly over the head, cheeks and back' },
   { id: 'brush', label: 'Brush', icon: 'brush', tip: 'Brush along the back to clean the coat' },
   { id: 'treat', label: 'Treat', icon: 'carrot', tip: 'Tap the bed to drop a carrot, or tap the bunny to hand-feed' },
-  { id: 'toy', label: 'Ball', icon: 'ball', tip: 'Tap anywhere to toss the ball and play' }
+  { id: 'toy', label: 'Ball', icon: 'ball', tip: 'Tap to toss the ball, or swipe to fling it' }
 ]
 
 function Meter({ icon, label, value, hue }) {
@@ -123,6 +123,70 @@ function LevelBanner() {
   )
 }
 
+function GoalsPanel({ onClose }) {
+  const daily = useGame((s) => s.daily)
+  const goals = GOAL_POOL.filter((g) => g.id in daily.goals)
+  return (
+    <div className="card panel">
+      <div className="panel-head">
+        <span>Today&apos;s goals</span>
+        <button className="panel-close" onClick={onClose} aria-label="Close"><Icon name="close" size={16} /></button>
+      </div>
+      {goals.map((g) => {
+        const v = daily.goals[g.id]
+        const done = v >= g.target
+        return (
+          <div key={g.id} className={`goal ${done ? 'done' : ''}`}>
+            <span className="goal-check">{done ? <Icon name="check" size={14} stroke={3} /> : null}</span>
+            <div className="goal-body">
+              <div className="goal-label">{g.label}</div>
+              <div className="goal-track"><div style={{ width: `${(v / g.target) * 100}%` }} /></div>
+            </div>
+            <span className="goal-count">{Math.floor(v)}/{g.target}</span>
+          </div>
+        )
+      })}
+      <div className="panel-foot">{daily.allDone ? 'All done! New goals tomorrow.' : 'Each goal gives bond hearts. New goals every day.'}</div>
+    </div>
+  )
+}
+
+function ClosetPanel({ onClose }) {
+  const wardrobe = useGame((s) => s.wardrobe)
+  const bond = useGame((s) => s.needs.bond)
+  const wear = useGame((s) => s.wear)
+  const lvl = bondLevel(bond)
+  return (
+    <div className="card panel">
+      <div className="panel-head">
+        <span>Closet</span>
+        <button className="panel-close" onClick={onClose} aria-label="Close"><Icon name="close" size={16} /></button>
+      </div>
+      <div className="closet">
+        {ACCESSORIES.map((a) => {
+          const locked = lvl < a.level
+          const on = wardrobe[a.slot] === a.id
+          return (
+            <button
+              key={a.id}
+              className={`closet-item ${on ? 'on' : ''} ${locked ? 'locked' : ''}`}
+              onClick={() => {
+                if (locked) { sfx.nope(); useGame.getState().toast(`Reach bond level ${a.level} to unlock the ${a.label.toLowerCase()}`); return }
+                sfx.click()
+                wear(a.id)
+              }}
+            >
+              <span className={`swatch swatch-${a.id}`}>{locked && <Icon name="lock" size={16} />}</span>
+              <span>{a.label}</span>
+              <small>{locked ? `Bond ${a.level}` : on ? 'Wearing' : 'Tap to wear'}</small>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export default function UI() {
   const needs = useGame((s) => s.needs)
   const tool = useGame((s) => s.tool)
@@ -134,6 +198,17 @@ export default function UI() {
   const items = useGame((s) => s.items)
   const lvl = bondLevel(needs.bond)
   const [tip, setTip] = useState(null)
+  const [panel, setPanel] = useState(null)
+  const daily = useGame((s) => s.daily)
+  const goalsDone = Object.entries(daily.goals).filter(([id, v]) => v >= GOAL_POOL.find((g) => g.id === id).target).length
+  const togglePanel = (p) => { sfx.click(); setPanel(panel === p ? null : p) }
+  // Gently point at whatever the bunny needs most.
+  const nudge = {
+    food: needs.food < 25,
+    water: needs.water < 25,
+    brush: needs.clean < 25,
+    pet: needs.joy < 30
+  }
 
   const chooseTool = (t) => {
     sfx.click()
@@ -171,11 +246,20 @@ export default function UI() {
           <Icon name={scene === 'bedroom' ? 'tree' : 'home'} size={20} />
           <span>{scene === 'bedroom' ? 'Garden' : 'Bedroom'}</span>
         </button>
+        <button className={`round-btn icon-only ${panel === 'goals' ? 'active' : ''}`} onClick={() => togglePanel('goals')} aria-label="Daily goals">
+          <Icon name="star" size={20} />
+          <span className={`badge ${goalsDone === 3 ? 'all' : ''}`}>{goalsDone}/3</span>
+        </button>
+        <button className={`round-btn icon-only ${panel === 'closet' ? 'active' : ''}`} onClick={() => togglePanel('closet')} aria-label="Closet">
+          <Icon name="bow" size={20} />
+        </button>
         <button className="round-btn icon-only" onClick={() => setMuted(!muted)} aria-label={muted ? 'Unmute' : 'Mute'}>
           <Icon name={muted ? 'soundOff' : 'soundOn'} size={20} />
         </button>
       </div>
 
+      {panel === 'goals' && <GoalsPanel onClose={() => setPanel(null)} />}
+      {panel === 'closet' && <ClosetPanel onClose={() => setPanel(null)} />}
       <Toasts />
       {tip ? <div className="tool-tip">{tip}</div> : <Hint />}
       <LevelBanner />
@@ -206,18 +290,18 @@ export default function UI() {
 
       <div className="bottom">
         <div className="care">
-          <button className="care-btn" disabled={items.some((i) => i.kind === 'food')} onClick={() => placeBowl('food')}>
+          <button className={`care-btn ${nudge.food ? 'nudge' : ''}`} disabled={items.some((i) => i.kind === 'food')} onClick={() => placeBowl('food')}>
             <Icon name="bowl" size={22} />
             <span>Feed</span>
           </button>
-          <button className="care-btn water" disabled={items.some((i) => i.kind === 'water')} onClick={() => placeBowl('water')}>
+          <button className={`care-btn water ${nudge.water ? 'nudge' : ''}`} disabled={items.some((i) => i.kind === 'water')} onClick={() => placeBowl('water')}>
             <Icon name="drop" size={22} />
             <span>Water</span>
           </button>
         </div>
         <div className="dock">
           {TOOLS.map((t) => (
-            <button key={t.id} className={`tool ${tool === t.id ? 'active' : ''}`} onClick={() => chooseTool(t)}>
+            <button key={t.id} className={`tool ${tool === t.id ? 'active' : ''} ${nudge[t.id] && tool !== t.id ? 'nudge' : ''}`} onClick={() => chooseTool(t)}>
               <Icon name={t.icon} size={24} />
               <span>{t.label}</span>
             </button>

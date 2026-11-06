@@ -2,7 +2,7 @@ import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useGame } from '../store'
-import { world, clampToBounds } from '../world'
+import { world, clampToBounds, startGesture } from '../world'
 import { fx } from './Particles'
 import { sfx } from '../audio'
 
@@ -75,11 +75,7 @@ export function Ball() {
   return (
     <mesh ref={ref} castShadow visible={false} onPointerDown={(e) => {
       e.stopPropagation()
-      const ball = world.ball
-      const away = new THREE.Vector3().subVectors(ball.pos, e.camera.position).setY(0).normalize()
-      ball.vel.copy(away).multiplyScalar(1.8)
-      ball.vy = 2
-      sfx.bounce(1)
+      startGesture(e, true)
     }}>
       <icosahedronGeometry args={[world.ball.radius, 2]} />
       <meshStandardMaterial map={tex} roughness={0.85} flatShading />
@@ -87,7 +83,37 @@ export function Ball() {
   )
 }
 
-export function throwBall(point, camera) {
+export function kickBall(camera) {
+  const ball = world.ball
+  const away = new THREE.Vector3().subVectors(ball.pos, camera.position).setY(0).normalize()
+  ball.vel.copy(away).multiplyScalar(1.8)
+  ball.vy = 2
+  sfx.bounce(1)
+}
+
+// Swipe: launch the ball along a ground direction. Spawns it at `from` if it
+// isn't in play yet.
+export function flingBall(from, dir, speed, camera) {
+  const ball = world.ball
+  if (!ball.active || from) {
+    if (from) ball.pos.set(from.x, 0, from.z)
+    else {
+      // No ground point: launch from just in front of the bunny, camera side.
+      const bun = world.bunny.pos
+      const toCam = new THREE.Vector3(camera.position.x - bun.x, 0, camera.position.z - bun.z).normalize()
+      ball.pos.set(bun.x + toCam.x * 0.5, 0, bun.z + toCam.z * 0.5)
+    }
+    ball.active = true
+    clampToBounds(ball.pos, ball.radius)
+    ball.y = Math.max(ball.y, 0.1)
+  }
+  ball.vel.copy(dir).multiplyScalar(speed)
+  ball.vy = 0.8 + speed * 0.35
+  sfx.pop()
+  fx.burst('sparkle', new THREE.Vector3(ball.pos.x, 0.1, ball.pos.z), 4, { scale: 0.6 })
+}
+
+export function throwBall(point) {
   const ball = world.ball
   if (!ball.active) {
     ball.active = true

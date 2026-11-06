@@ -21,6 +21,41 @@ export const TRICKS = [
   { id: 'twirl', label: 'Twirl', level: 4 }
 ]
 
+// Accessories unlock with bond level. Head items are exclusive; neck is its own slot.
+export const ACCESSORIES = [
+  { id: 'bow', label: 'Ribbon bow', slot: 'head', level: 2 },
+  { id: 'scarf', label: 'Cozy scarf', slot: 'neck', level: 3 },
+  { id: 'crown', label: 'Flower crown', slot: 'head', level: 4 },
+  { id: 'hat', label: 'Party hat', slot: 'head', level: 5 }
+]
+
+// Three daily goals are picked from this pool each day.
+export const GOAL_POOL = [
+  { id: 'pet', label: 'Give 30 gentle strokes', target: 30 },
+  { id: 'boop', label: 'Boop the nose 3 times', target: 3 },
+  { id: 'fetch', label: 'Play fetch 5 times', target: 5 },
+  { id: 'treat', label: 'Share 3 carrot treats', target: 3 },
+  { id: 'brush', label: 'Brush 20 strokes', target: 20 },
+  { id: 'trick', label: 'Practise 3 tricks', target: 3 },
+  { id: 'meal', label: 'Serve 2 meals or drinks', target: 2 }
+]
+
+const todayKey = () => new Date().toDateString()
+
+function newDaily() {
+  const date = todayKey()
+  let h = 0
+  for (const c of date) h = (h * 31 + c.charCodeAt(0)) >>> 0
+  const pool = [...GOAL_POOL]
+  const goals = {}
+  for (let i = 0; i < 3; i++) {
+    h = (h * 1103515245 + 12345) >>> 0
+    const [g] = pool.splice(h % pool.length, 1)
+    goals[g.id] = 0
+  }
+  return { date, goals, allDone: false }
+}
+
 // Per-second need changes. All needs are "higher is better".
 const DECAY = { food: -0.1, water: -0.13, clean: -0.04, joy: -0.12 }
 
@@ -52,7 +87,7 @@ function loadSaved() {
 function initialState() {
   const saved = loadSaved()
   if (!saved) {
-    return { needs: { ...DEFAULT_NEEDS }, name: 'Bun', firstVisit: true }
+    return { needs: { ...DEFAULT_NEEDS }, name: 'Bun', firstVisit: true, daily: newDaily(), wardrobe: { head: null, neck: null } }
   }
   const needs = { ...DEFAULT_NEEDS, ...saved.needs }
   // Gentle offline decay: a quarter speed, capped at 4 hours, never below 20.
@@ -60,7 +95,14 @@ function initialState() {
   for (const k of Object.keys(DECAY)) {
     needs[k] = Math.max(Math.min(needs[k], 20), needs[k] + DECAY[k] * away)
   }
-  return { needs, name: saved.name || 'Bun', firstVisit: false }
+  const daily = saved.daily && saved.daily.date === todayKey() ? saved.daily : newDaily()
+  return {
+    needs,
+    name: saved.name || 'Bun',
+    firstVisit: false,
+    daily,
+    wardrobe: { head: null, neck: null, ...saved.wardrobe }
+  }
 }
 
 const init = initialState()
@@ -78,6 +120,9 @@ export const useGame = create((set, get) => ({
   items: [],
   bubble: null, // transient bunny state shown above its head: 'melting' | 'tired' | null
   levelUp: 0,
+  celebrate: 0,
+  daily: init.daily,
+  wardrobe: init.wardrobe,
 
   change: (delta) => {
     const prev = get().needs
@@ -88,8 +133,8 @@ export const useGame = create((set, get) => ({
     set({ needs })
     if (after > before) {
       set({ levelUp: after })
-      const unlocked = TRICKS.filter(t => t.level === after).map(t => t.label)
-      get().toast(`Bond level ${after}!${unlocked.length ? ` New trick: ${unlocked.join(', ')}` : ''}`, 'big')
+      const unlocked = [...TRICKS, ...ACCESSORIES].filter(t => t.level === after).map(t => t.label)
+      get().toast(`Bond level ${after}!${unlocked.length ? ` Unlocked: ${unlocked.join(', ')}` : ''}`, 'big')
     }
   },
 
@@ -118,6 +163,38 @@ export const useGame = create((set, get) => ({
   },
   removeItem: (id) => set(s => ({ items: s.items.filter(i => i.id !== id) })),
 
+  // Advance a daily goal ('pet', 'boop', 'fetch', ...).
+  progress: (kind, n = 1) => {
+    let daily = get().daily
+    if (daily.date !== todayKey()) daily = newDaily()
+    if (!(kind in daily.goals)) { if (daily !== get().daily) set({ daily }); return }
+    const goal = GOAL_POOL.find(g => g.id === kind)
+    const before = daily.goals[kind]
+    if (before >= goal.target) return
+    const now = Math.min(goal.target, before + n)
+    daily = { ...daily, goals: { ...daily.goals, [kind]: now } }
+    set({ daily })
+    if (now >= goal.target) {
+      get().change({ bond: 3, joy: 8 })
+      set(s => ({ celebrate: s.celebrate + 1 }))
+      const all = GOAL_POOL.filter(g => g.id in daily.goals).every(g => daily.goals[g.id] >= g.target)
+      if (all && !daily.allDone) {
+        set({ daily: { ...daily, allDone: true } })
+        get().change({ bond: 5 })
+        get().toast('All daily goals done! See you tomorrow', 'big')
+      } else {
+        get().toast(`Goal complete: ${goal.label}`, 'big')
+      }
+    }
+  },
+
+  wear: (id) => {
+    const acc = ACCESSORIES.find(a => a.id === id)
+    if (!acc) return
+    const w = get().wardrobe
+    set({ wardrobe: { ...w, [acc.slot]: w[acc.slot] === id ? null : id } })
+  },
+
   setTool: (tool) => set({ tool }),
   setMuted: (muted) => set({ muted }),
   setScene: (scene) => set({ scene, items: [] }),
@@ -132,9 +209,9 @@ useGame.subscribe((s) => {
   if (saveTimer) return
   saveTimer = setTimeout(() => {
     saveTimer = null
-    const { needs, name } = useGame.getState()
+    const { needs, name, daily, wardrobe } = useGame.getState()
     try {
-      localStorage.setItem(KEY, JSON.stringify({ needs, name, savedAt: Date.now() }))
+      localStorage.setItem(KEY, JSON.stringify({ needs, name, daily, wardrobe, savedAt: Date.now() }))
     } catch (e) { /* ignore quota / private mode */ }
   }, 1500)
 })

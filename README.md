@@ -10,9 +10,12 @@ Visit your bunny in a sunlit bedroom or a golden-hour garden. Stroke it, brush i
 - **Tap the nose** for a boop.
 - **Brush** along the back to clean the coat (a scruffy coat looks dull).
 - **Treat**: tap the bed or grass to drop a carrot, or tap the bunny to hand-feed it.
-- **Ball**: tap anywhere to toss a woven ball. The bunny chases and nudges it around, and takes a breather after a while.
+- **Ball**: tap to toss a woven ball, or swipe to fling it. The bunny chases and nudges it around, and takes a breather after a while.
 - **Feed / Water** place bowls next to the bunny.
 - **Tricks** (Come, Sit up, Wave, Binky, Twirl) unlock with bond levels 1 to 5.
+- **Daily goals** (star button): three small goals each day, each rewarding bond hearts.
+- **Closet** (bow button): a ribbon bow, cozy scarf, flower crown and party hat unlock as your bond grows.
+- Buttons gently bounce when the bunny needs food, water, brushing or attention.
 
 Needs (food, water, coat, joy) drift down slowly over time and progress is saved in the browser.
 

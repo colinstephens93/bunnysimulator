@@ -67,12 +67,97 @@ function rotateBoneInBunnyFrame(bone, groupQuat, euler) {
   bone.quaternion.premultiply(_q)
 }
 
+// Accessories are modelled in the bunny's rest-pose space, then parented to a
+// bone so they follow the animation.
+function buildAccessories(bones) {
+  const std = (color, extra = {}) => new THREE.MeshPhysicalMaterial({ color, roughness: 0.6, sheen: 0.6, sheenColor: new THREE.Color('#ffffff'), ...extra })
+  const out = {}
+  const place = (id, boneName, group, pos, rot = [0, 0, 0]) => {
+    const bone = bones[boneName]
+    if (!bone) return
+    group.position.set(...pos)
+    group.rotation.set(...rot)
+    group.visible = false
+    group.traverse((o) => { if (o.isMesh) o.castShadow = true })
+    bone.attach(group)
+    out[id] = group
+  }
+
+  // Ribbon bow by the left ear.
+  const bow = new THREE.Group()
+  const pink = std('#ff6f9f')
+  for (const side of [-1, 1]) {
+    const loop = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), pink)
+    loop.scale.set(0.034, 0.022, 0.012)
+    loop.position.set(side * 0.03, 0, 0)
+    loop.rotation.z = side * 0.35
+    bow.add(loop)
+    const tail = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.035, 0.006), pink)
+    tail.position.set(side * 0.012, -0.022, 0)
+    tail.rotation.z = side * 0.4
+    bow.add(tail)
+  }
+  const knot = new THREE.Mesh(new THREE.SphereGeometry(0.013, 12, 10), std('#ff4f86'))
+  bow.add(knot)
+  place('bow', 'Head', bow, [0.07, 0.53, 0.15], [0.1, 0, -0.45])
+
+  // Flower crown.
+  const crown = new THREE.Group()
+  const vine = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.009, 8, 40), std('#6fae5a'))
+  vine.rotation.x = Math.PI / 2
+  crown.add(vine)
+  const petals = ['#ffb3c9', '#fff3a0', '#ffffff', '#c9b3ff', '#ffc48a']
+  for (let i = 0; i < 9; i++) {
+    const a = (i / 9) * Math.PI * 2
+    const f = new THREE.Mesh(new THREE.IcosahedronGeometry(0.019, 1), std(petals[i % petals.length]))
+    f.position.set(Math.cos(a) * 0.1, 0.008, Math.sin(a) * 0.1)
+    f.scale.set(1, 0.7, 1)
+    crown.add(f)
+    const c = new THREE.Mesh(new THREE.SphereGeometry(0.007, 8, 6), std('#ffcf4a'))
+    c.position.set(Math.cos(a) * 0.1, 0.022, Math.sin(a) * 0.1)
+    crown.add(c)
+  }
+  place('crown', 'Head', crown, [0, 0.515, 0.15], [0.22, 0, 0])
+
+  // Party hat.
+  const hat = new THREE.Group()
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.13, 24), std('#7bdff2'))
+  hat.add(cone)
+  const stripe = new THREE.Mesh(new THREE.TorusGeometry(0.036, 0.006, 8, 24), std('#ff7eb3'))
+  stripe.rotation.x = Math.PI / 2
+  stripe.position.y = -0.02
+  hat.add(stripe)
+  const pom = new THREE.Mesh(new THREE.IcosahedronGeometry(0.018, 2), std('#ffd166'))
+  pom.position.y = 0.07
+  hat.add(pom)
+  place('hat', 'Head', hat, [-0.025, 0.6, 0.16], [0.1, 0, 0.25])
+
+  // Knitted scarf.
+  const scarf = new THREE.Group()
+  const red = std('#e8615a', { roughness: 0.95 })
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.032, 10, 32), red)
+  ring.rotation.x = Math.PI / 2
+  ring.scale.set(1, 1.05, 1)
+  scarf.add(ring)
+  const end = new THREE.Mesh(new THREE.CapsuleGeometry(0.022, 0.07, 4, 8), red)
+  end.position.set(0.06, -0.05, 0.11)
+  end.rotation.set(0.3, 0, 0.25)
+  scarf.add(end)
+  const fringe = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.024, 0.02, 10), std('#fff1e0'))
+  fringe.position.set(0.075, -0.1, 0.125)
+  fringe.rotation.set(0.3, 0, 0.25)
+  scarf.add(fringe)
+  place('scarf', 'Neck', scarf, [0, 0.29, 0.06], [0.28, 0, 0])
+
+  return out
+}
+
 export default function Bunny() {
   const gltf = useGLTF('/bunny.glb')
   const group = useRef()
   const body = useRef()
 
-  const { model, bones, furMats, blushMat } = useMemo(() => {
+  const { model, bones, furMats, blushMat, accessories } = useMemo(() => {
     const model = skeletonClone(gltf.scene)
     model.rotation.y = Math.PI // the GLB faces -Z; turn it toward the camera
     const bones = {}
@@ -126,8 +211,23 @@ export default function Bunny() {
       m.renderOrder = 2
       bones.Head.attach(m)
     }
-    return { model, bones, furMats, blushMat }
+    const accessories = buildAccessories(bones)
+    return { model, bones, furMats, blushMat, accessories }
   }, [gltf])
+
+  // Show the accessories the player chose.
+  const wardrobe = useGame((st) => st.wardrobe)
+  useEffect(() => {
+    for (const id in accessories) accessories[id].visible = wardrobe.head === id || wardrobe.neck === id
+  }, [wardrobe, accessories])
+  useEffect(() => useGame.subscribe((st, prev) => {
+    if (st.wardrobe !== prev.wardrobe) {
+      fx.burst('sparkle', _v.copy(world.bunny.head).add(_v2.set(0, 0.12, 0)), 12)
+      sfx.sparkle()
+      const s = b.current
+      if (s.state === 'idle' || s.state === 'hold') { setState('react'); play('Yes', { loop: false, fade: 0.2 }) }
+    }
+  }), []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const mixer = useMemo(() => new THREE.AnimationMixer(model), [model])
   const poseBase = useMemo(() => ({}), [model])
@@ -271,6 +371,7 @@ export default function Bunny() {
     s.eat = null
     s.munch = 0
     if (item.id) g.removeItem(item.id)
+    g.progress(item.kind === 'treat' ? 'treat' : 'meal')
     if (item.kind === 'treat') {
       g.change({ food: 8, joy: 12, bond: item.hand ? 3 : 1.5 })
       if (item.hand) toast('{n} nibbled it right from your hand', 0)
@@ -301,6 +402,7 @@ export default function Bunny() {
     fx.burst('sparkle', ball.pos, 8)
     sfx.happy()
     useGame.getState().change({ joy: 4, bond: 0.6 })
+    useGame.getState().progress('fetch')
     react('Jump', { speed: 1.1 })
     if (s.nudges % 6 === 0) {
       s.tiredUntil = s.now + 7
@@ -356,6 +458,7 @@ export default function Bunny() {
     }
     s.eat = null
     s.munch = 0
+    g.progress('trick')
     const bun = world.bunny
     const reward = () => {
       g.change({ joy: 4, bond: 1.2 })
@@ -464,6 +567,7 @@ export default function Bunny() {
     s.lastTickAt = s.now
     const brush = g.tool === 'brush'
     g.change({ joy: 1.8 * pref, bond: 0.14 * pref })
+    g.progress(brush ? 'brush' : 'pet')
     s.squashV -= 0.6
     if (brush) {
       const cleanGain = zone === 'back' || zone === 'head' ? 1.6 : 0.6
@@ -488,6 +592,8 @@ export default function Bunny() {
     e.stopPropagation()
     const s = b.current
     const g = useGame.getState()
+    world.gesture = null // touching the bunny is never a ball swipe
+    world.holdCamera = false
     s.nextIdleAct = s.now + 6
     if (g.tool === 'treat') {
       if (s.state !== 'eat') {
@@ -552,6 +658,7 @@ export default function Bunny() {
           fx.burst('heart', s.downPoint, 3)
           s.squashV -= 1.4
           useGame.getState().change({ joy: 2, bond: 0.3 })
+          useGame.getState().progress('boop')
           toast(pick(['Boop!', 'Nose boop!', '*wiggles nose*']), 1)
         } else if (PREFS[zone] > 0) {
           fx.burst('heart', s.downPoint, 1)
@@ -626,7 +733,7 @@ export default function Bunny() {
           }
         }
         const ball = world.ball
-        if (ball.active && now > s.tiredUntil && now > s.nudgeCooldown && ball.vel.length() < 0.9) {
+        if (ball.active && now > s.tiredUntil && now > s.nudgeCooldown && ball.vel.length() < 1.6) {
           goTo(ball.pos.x, ball.pos.z, {
             speed: 1.15,
             clip: 'Run',
