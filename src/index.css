@@ -174,7 +174,7 @@ button {
   top: calc(max(12px, env(safe-area-inset-top)) + 52px);
   right: max(12px, env(safe-area-inset-right));
   width: min(300px, calc(100vw - 24px));
-  max-height: calc(100vh - 140px);
+  max-height: calc(100dvh - 80px);
   overflow-y: auto;
   padding: 12px 14px;
   z-index: 20;
@@ -220,6 +220,100 @@ button {
 .swatch-crown { background: radial-gradient(circle at 30% 30%, #fff3a0 0 18%, transparent 19%), radial-gradient(circle at 70% 40%, #ffb3c9 0 18%, transparent 19%), radial-gradient(circle at 45% 72%, #c9b3ff 0 18%, transparent 19%), #8cc474; }
 .swatch-hat { background: conic-gradient(from 0deg, #7bdff2, #ff7eb3, #ffd166, #7bdff2); }
 .closet-item.locked .swatch { background: rgba(120, 80, 60, 0.15); }
+
+/* Stat bars: tap for a tip, pulse when they rise */
+.meter { cursor: pointer; }
+.meter.up .meter-fill { filter: brightness(1.25) saturate(1.2); }
+.meter.up .meter-icon { animation: pop 0.6s ease; }
+@keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.45); } 100% { transform: scale(1); } }
+
+/* Settings */
+.setting { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 4px 0; font-size: 14px; font-weight: 500; }
+.setting span { display: flex; flex-direction: column; }
+.setting small { font-size: 10.5px; font-weight: 400; color: var(--ink-soft); }
+.setting.disabled { opacity: 0.45; }
+.setting input[type='range'] { width: 130px; accent-color: #ff7eb3; touch-action: pan-x; }
+.switch { flex: none; width: 46px; height: 28px; border-radius: 99px; background: rgba(120, 80, 60, 0.22); position: relative; transition: background 0.2s; }
+.switch i { position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2); transition: transform 0.2s; }
+.switch.on { background: linear-gradient(135deg, #ff9ec2, #ff6fa6); }
+.switch.on i { transform: translateX(18px); }
+
+/* Treat picker above the dock */
+.treat-picker {
+  position: absolute;
+  left: 50%;
+  bottom: 72px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  padding: 5px;
+  border-radius: 999px;
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  animation: hintIn 0.3s ease both;
+}
+.treat-chip { display: flex; align-items: center; gap: 4px; padding: 6px 10px; border-radius: 999px; font-size: 12px; font-weight: 500; color: var(--ink-soft); white-space: nowrap; }
+.treat-chip.on { color: #fff; }
+.treat-carrot svg { color: #ff8a2b; }
+.treat-strawberry svg { color: #ff3b4e; }
+.treat-parsley svg { color: #3f9a3a; }
+.treat-banana svg { color: #e0b83a; }
+.treat-chip.on svg { color: #fff; }
+.treat-carrot.on { background: #ff9a4a; }
+.treat-strawberry.on { background: #ff5a6b; }
+.treat-parsley.on { background: #5cb050; }
+.treat-banana.on { background: #e8bf3a; }
+
+/* Photo mode */
+.hud.posing > *:not(.camera-flash):not(.photo-overlay) { opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+.camera-flash { position: fixed; inset: 0; background: #fff; pointer-events: none; animation: flash 0.45s ease-out both; z-index: 60; }
+@keyframes flash { from { opacity: 0.9; } to { opacity: 0; } }
+.photo-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(40, 20, 15, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.photo-card {
+  background: #fffaf4;
+  padding: 10px 10px 12px;
+  border-radius: 18px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: 92vw;
+  transform: rotate(-1.5deg);
+  animation: toastIn 0.4s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+.photo-card img { display: block; max-width: min(88vw, 640px); max-height: 62vh; border-radius: 10px; }
+.photo-card small { font-size: 11px; color: var(--ink-soft); }
+.photo-actions { display: flex; gap: 8px; }
+.photo-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 16px; border-radius: 999px;
+  font-size: 14px; font-weight: 600; text-decoration: none;
+  color: #fff; background: linear-gradient(135deg, #ff7eb3, #ffa25e);
+}
+.photo-btn.ghost { color: var(--ink); background: rgba(120, 80, 60, 0.12); }
+
+/* Reduce motion: calm the interface animations */
+body.reduce-motion .nudge,
+body.reduce-motion .bubble,
+body.reduce-motion .start-btn,
+body.reduce-motion .start-sun,
+body.reduce-motion .hint-hand,
+body.reduce-motion .meter.low .meter-icon { animation: none !important; }
 
 /* Gentle attention nudge for whatever the bunny needs */
 .nudge { animation: nudge 1.4s ease-in-out infinite; }
@@ -349,7 +443,7 @@ button {
 /* Toasts, hints, banners */
 .toasts {
   position: absolute;
-  top: max(14px, env(safe-area-inset-top));
+  top: calc(max(12px, env(safe-area-inset-top)) + 54px);
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -554,4 +648,11 @@ button {
   .tool { width: 50px; }
   .hint, .tool-tip { bottom: calc(max(12px, env(safe-area-inset-bottom)) + 130px); white-space: normal; text-align: center; max-width: 86vw; }
   .toasts { top: auto; bottom: calc(max(12px, env(safe-area-inset-bottom)) + 190px); width: 86vw; }
+  .treat-picker { bottom: 128px; }
+  .panel { top: max(12px, env(safe-area-inset-top)); right: 64px; width: min(300px, calc(100vw - 88px)); }
+}
+
+.tool-tip { bottom: calc(max(12px, env(safe-area-inset-bottom)) + 124px); }
+@media (orientation: portrait) {
+  .tool-tip { bottom: calc(max(12px, env(safe-area-inset-bottom)) + 180px); }
 }

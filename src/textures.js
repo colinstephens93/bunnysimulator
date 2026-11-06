@@ -176,3 +176,31 @@ export const beamTexture = () => canvasTex('beam', 128, (x, s) => {
   x.fillStyle = h
   x.fillRect(0, 0, s, s)
 })
+
+export const nightSkyTexture = () => canvasTex('nightSky', 256, (x, s) => {
+  const g = x.createLinearGradient(0, 0, 0, s)
+  g.addColorStop(0, '#0e1233')
+  g.addColorStop(0.6, '#26285a')
+  g.addColorStop(1, '#4a3b6b')
+  x.fillStyle = g
+  x.fillRect(0, 0, s, s)
+  for (let i = 0; i < 90; i++) {
+    const r = Math.random() * 1.2 + 0.3
+    x.fillStyle = `rgba(255,255,240,${0.4 + Math.random() * 0.6})`
+    x.beginPath(); x.arc(Math.random() * s, Math.random() * s * 0.8, r, 0, Math.PI * 2); x.fill()
+  }
+  // Moon with a soft halo.
+  const mg = x.createRadialGradient(s * 0.68, s * 0.3, 2, s * 0.68, s * 0.3, s * 0.22)
+  mg.addColorStop(0, 'rgba(255,250,225,0.5)')
+  mg.addColorStop(1, 'rgba(255,250,225,0)')
+  x.fillStyle = mg
+  x.fillRect(0, 0, s, s)
+  x.fillStyle = '#fff7da'
+  x.beginPath(); x.arc(s * 0.68, s * 0.3, 16, 0, Math.PI * 2); x.fill()
+  x.fillStyle = '#20234d'
+  x.beginPath(); x.arc(s * 0.68 + 7, s * 0.3 - 4, 14, 0, Math.PI * 2); x.fill()
+  x.fillStyle = '#1b1838'
+  x.beginPath(); x.moveTo(0, s)
+  for (let i = 0; i <= 20; i++) x.lineTo((i / 20) * s, s * 0.86 - Math.sin(i * 0.7) * 10 - Math.sin(i * 1.9) * 5)
+  x.lineTo(s, s); x.fill()
+})

@@ -1,12 +1,15 @@
 import { useLayoutEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
+import { useGame } from '../store'
 
 // Pooled, instanced particle bursts. Anything can call fx.burst(...) and the
 // <Particles/> component drains the queue inside the render loop.
 const queue = []
 export const fx = {
   burst(type, pos, count = 1, opts = {}) {
+    // Fewer particles with "reduce motion" on (but never zero).
+    if (useGame.getState().settings.reduceMotion && count > 2) count = Math.ceil(count * 0.35)
     queue.push({ type, pos: pos.clone ? pos.clone() : new THREE.Vector3(...pos), count, opts })
   }
 }

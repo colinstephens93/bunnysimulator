@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 
+// Storage keys keep the original app name so existing saves carry over.
 const KEY = 'goldenHourBunny.v2'
 const LEGACY_KEY = 'goldenHourBunny'
 
@@ -41,6 +42,23 @@ export const GOAL_POOL = [
 ]
 
 const todayKey = () => new Date().toDateString()
+const yesterdayKey = () => new Date(Date.now() - 864e5).toDateString()
+
+export const TREATS = [
+  { id: 'carrot', label: 'Carrot', food: 8, joy: 12 },
+  { id: 'strawberry', label: 'Strawberry', food: 5, joy: 20, line: 'Strawberry! {n}\'s favourite' },
+  { id: 'parsley', label: 'Parsley', food: 14, joy: 8, line: 'Fresh parsley, very healthy' },
+  { id: 'banana', label: 'Banana', food: 6, joy: 16, line: 'A sweet little banana slice' }
+]
+
+export const isNightHour = (d = new Date()) => d.getHours() >= 21 || d.getHours() < 6
+
+const SETTINGS_KEY = 'hannahsBunny.settings'
+const prefersReducedMotion = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches
+function loadSettings() {
+  const def = { muted: false, music: 0.7, sfx: 0.8, haptics: true, reduceMotion: prefersReducedMotion, lowPower: false }
+  try { return { ...def, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') } } catch (e) { return def }
+}
 
 function newDaily() {
   const date = todayKey()
@@ -87,21 +105,42 @@ function loadSaved() {
 function initialState() {
   const saved = loadSaved()
   if (!saved) {
-    return { needs: { ...DEFAULT_NEEDS }, name: 'Bun', firstVisit: true, daily: newDaily(), wardrobe: { head: null, neck: null } }
+    return {
+      needs: { ...DEFAULT_NEEDS }, name: 'Bun', firstVisit: true, daily: newDaily(), wardrobe: { head: null, neck: null },
+      visit: { last: todayKey(), streak: 1 }, welcome: null
+    }
   }
   const needs = { ...DEFAULT_NEEDS, ...saved.needs }
-  // Gentle offline decay: a quarter speed, capped at 4 hours, never below 20.
-  const away = Math.min(4 * 3600, Math.max(0, (Date.now() - (saved.savedAt || Date.now())) / 1000)) * 0.25
+  const before = { ...needs }
+  const awaySec = Math.max(0, (Date.now() - (saved.savedAt || Date.now())) / 1000)
+  // Gentle offline decay: 6% speed, capped at 8 hours away, never below 30.
+  // (Eight hours away costs roughly a fifth of food, water and joy.)
+  const away = Math.min(8 * 3600, Math.max(0, (Date.now() - (saved.savedAt || Date.now())) / 1000)) * 0.06
   for (const k of Object.keys(DECAY)) {
-    needs[k] = Math.max(Math.min(needs[k], 20), needs[k] + DECAY[k] * away)
+    needs[k] = Math.max(Math.min(needs[k], 30), needs[k] + DECAY[k] * away)
   }
   const daily = saved.daily && saved.daily.date === todayKey() ? saved.daily : newDaily()
+  // Daily visit streak.
+  const prevVisit = saved.visit || { last: null, streak: 0 }
+  const newDay = prevVisit.last !== todayKey()
+  const visit = newDay
+    ? { last: todayKey(), streak: prevVisit.last === yesterdayKey() ? prevVisit.streak + 1 : 1 }
+    : prevVisit
+  const welcome = {
+    awayHours: awaySec / 3600,
+    newDay,
+    streak: visit.streak,
+    hungry: before.food - needs.food > 8 || needs.food < 35,
+    thirsty: before.water - needs.water > 8 || needs.water < 35
+  }
   return {
     needs,
     name: saved.name || 'Bun',
     firstVisit: false,
     daily,
-    wardrobe: { head: null, neck: null, ...saved.wardrobe }
+    wardrobe: { head: null, neck: null, ...saved.wardrobe },
+    visit,
+    welcome
   }
 }
 
@@ -115,7 +154,12 @@ export const useGame = create((set, get) => ({
   hint: init.firstVisit ? 'pet' : null,
   scene: 'bedroom',
   tool: 'pet',
-  muted: false,
+  settings: loadSettings(),
+  treatKind: 'carrot',
+  photo: null,
+  night: isNightHour(),
+  visit: init.visit,
+  welcome: init.welcome,
   toasts: [],
   items: [],
   bubble: null, // transient bunny state shown above its head: 'melting' | 'tired' | null
@@ -145,7 +189,7 @@ export const useGame = create((set, get) => ({
       food: DECAY.food * dt,
       water: DECAY.water * dt,
       clean: DECAY.clean * dt,
-      joy: DECAY.joy * dt * (neglected ? 2 : 1),
+      joy: DECAY.joy * dt * (neglected ? 2 : 1) * (get().night ? 0.5 : 1),
       bond: neglected ? -0.03 * dt : 0
     })
   },
@@ -196,7 +240,13 @@ export const useGame = create((set, get) => ({
   },
 
   setTool: (tool) => set({ tool }),
-  setMuted: (muted) => set({ muted }),
+  setSetting: (key, value) => {
+    const settings = { ...get().settings, [key]: value }
+    set({ settings })
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)) } catch (e) { /* ignore */ }
+  },
+  setTreatKind: (treatKind) => set({ treatKind }),
+  setNight: (night) => { if (get().night !== night) set({ night }) },
   setScene: (scene) => set({ scene, items: [] }),
   setName: (name) => set({ name }),
   setHint: (hint) => set({ hint }),
@@ -209,9 +259,9 @@ useGame.subscribe((s) => {
   if (saveTimer) return
   saveTimer = setTimeout(() => {
     saveTimer = null
-    const { needs, name, daily, wardrobe } = useGame.getState()
+    const { needs, name, daily, wardrobe, visit } = useGame.getState()
     try {
-      localStorage.setItem(KEY, JSON.stringify({ needs, name, daily, wardrobe, savedAt: Date.now() }))
+      localStorage.setItem(KEY, JSON.stringify({ needs, name, daily, wardrobe, visit, savedAt: Date.now() }))
     } catch (e) { /* ignore quota / private mode */ }
   }, 1500)
 })

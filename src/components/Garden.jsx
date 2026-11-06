@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { Sky, Sparkles, RoundedBox } from '@react-three/drei'
 import * as THREE from 'three'
 import { ginghamTexture } from '../textures'
+import { useGame } from '../store'
 
 const BLANKET = { w: 2.6, d: 2.0, x: 0, z: 0.05 }
 
@@ -174,6 +175,7 @@ function Fence() {
 
 export default function Garden() {
   const gingham = useMemo(ginghamTexture, [])
+  const lowPower = useGame((s) => s.settings.lowPower)
   return (
     <group>
       <fog attach="fog" args={['#ffd3a8', 9, 26]} />
@@ -205,8 +207,8 @@ export default function Garden() {
         <planeGeometry args={[BLANKET.w, BLANKET.d]} />
         <meshStandardMaterial map={gingham} roughness={0.95} />
       </mesh>
-      <Grass />
-      <Flowers />
+      <Grass count={lowPower ? 1200 : 3500} />
+      <Flowers count={lowPower ? 60 : 120} />
 
       {/* Rolling hills */}
       {[[-9, -14, 7, '#7fb05a'], [3, -16, 9, '#8dbb63'], [13, -12, 6, '#76a453'], [-18, -10, 7, '#86b45e']].map(([x, z, r, c], i) => (

@@ -149,6 +149,83 @@ function Carrot() {
   )
 }
 
+function Strawberry() {
+  const seeds = useMemo(() => Array.from({ length: 14 }, (_, i) => {
+    const a = i * 2.4
+    const y = -0.02 + (i / 14) * 0.045
+    const r = 0.03 * (1 - Math.abs(y) * 8)
+    return [Math.cos(a) * r, y, Math.sin(a) * r]
+  }), [])
+  return (
+    <group position={[0, 0.03, 0]}>
+      <mesh castShadow scale={[1, 1.15, 1]}>
+        <sphereGeometry args={[0.035, 16, 12]} />
+        <meshPhysicalMaterial color="#ff3b4e" roughness={0.35} clearcoat={0.6} />
+      </mesh>
+      {seeds.map((p, i) => (
+        <mesh key={i} position={p}>
+          <sphereGeometry args={[0.0035, 4, 3]} />
+          <meshStandardMaterial color="#ffe08a" />
+        </mesh>
+      ))}
+      {[0, 1, 2, 3, 4].map((i) => (
+        <mesh key={i} position={[Math.cos(i * 1.26) * 0.015, 0.038, Math.sin(i * 1.26) * 0.015]} rotation={[Math.sin(i * 1.26) * 0.9, 0, -Math.cos(i * 1.26) * 0.9]}>
+          <coneGeometry args={[0.008, 0.03, 4]} />
+          <meshStandardMaterial color="#4caf50" />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
+function Parsley() {
+  return (
+    <group>
+      <mesh position={[0, 0.03, 0]} rotation={[0, 0, 0.3]}>
+        <cylinderGeometry args={[0.004, 0.005, 0.07, 5]} />
+        <meshStandardMaterial color="#6aa84f" />
+      </mesh>
+      {Array.from({ length: 9 }, (_, i) => {
+        const a = i * 0.7
+        return (
+          <mesh key={i} castShadow position={[-0.012 + Math.cos(a) * 0.02, 0.06 + Math.sin(i) * 0.012, Math.sin(a) * 0.02]}>
+            <icosahedronGeometry args={[0.016, 0]} />
+            <meshStandardMaterial color={i % 2 ? '#3f9a3a' : '#57b84a'} flatShading roughness={0.7} />
+          </mesh>
+        )
+      })}
+    </group>
+  )
+}
+
+function Banana() {
+  return (
+    <group position={[0, 0.012, 0]}>
+      <mesh castShadow>
+        <cylinderGeometry args={[0.04, 0.04, 0.024, 24]} />
+        <meshStandardMaterial color="#fff4c9" roughness={0.6} />
+      </mesh>
+      <mesh>
+        <torusGeometry args={[0.04, 0.005, 6, 24]} />
+        <meshStandardMaterial color="#f6d44b" />
+      </mesh>
+      {[0, 1, 2].map((i) => (
+        <mesh key={i} position={[Math.cos(i * 2.1) * 0.012, 0.0125, Math.sin(i * 2.1) * 0.012]} rotation={[-Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[0.004, 6]} />
+          <meshStandardMaterial color="#a88a4a" />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
+export function TreatModel({ treat }) {
+  if (treat === 'strawberry') return <Strawberry />
+  if (treat === 'parsley') return <Parsley />
+  if (treat === 'banana') return <Banana />
+  return <Carrot />
+}
+
 function Bowl({ kind }) {
   const geo = useMemo(() => {
     const pts = []
@@ -210,13 +287,13 @@ function Item({ item }) {
         }
       }
     }
-    ref.current.position.set(item.x, s.y + (item.kind === 'treat' ? 0.03 : 0), item.z)
+    ref.current.position.set(item.x, s.y + (item.kind === 'treat' && (item.treat || 'carrot') === 'carrot' ? 0.03 : 0), item.z)
     ref.current.scale.setScalar(s.scale)
     if (item.kind === 'treat') ref.current.rotation.y += dt * (item.landed ? 0 : 6)
   })
   return (
     <group ref={ref} rotation={[0, item.rot || 0, 0]}>
-      {item.kind === 'treat' ? <Carrot /> : <Bowl kind={item.kind} />}
+      {item.kind === 'treat' ? <TreatModel treat={item.treat} /> : <Bowl kind={item.kind} />}
     </group>
   )
 }
@@ -251,6 +328,6 @@ export function dropTreat(point) {
   }
   const p = new THREE.Vector3(point.x, 0, point.z)
   clampToBounds(p, 0.1)
-  g.addItem({ kind: 'treat', x: p.x, z: p.z, rot: Math.random() * 6, landed: false })
+  g.addItem({ kind: 'treat', treat: g.treatKind, x: p.x, z: p.z, rot: Math.random() * 6, landed: false })
   sfx.pop()
 }

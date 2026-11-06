@@ -3,7 +3,8 @@ import { useFrame } from '@react-three/fiber'
 import { useGLTF, Html } from '@react-three/drei'
 import * as THREE from 'three'
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
-import { useGame } from '../store'
+import { useGame, TREATS } from '../store'
+import { buzz } from '../haptics'
 import { world, clampToBounds } from '../world'
 import { fx } from './Particles'
 import { sfx } from '../audio'
@@ -373,8 +374,19 @@ export default function Bunny() {
     if (item.id) g.removeItem(item.id)
     g.progress(item.kind === 'treat' ? 'treat' : 'meal')
     if (item.kind === 'treat') {
-      g.change({ food: 8, joy: 12, bond: item.hand ? 3 : 1.5 })
-      if (item.hand) toast('{n} nibbled it right from your hand', 0)
+      const t = TREATS.find((x) => x.id === item.treat) || TREATS[0]
+      g.change({ food: t.food, joy: t.joy, bond: item.hand ? 3 : 1.5 })
+      if (s.makeUp) {
+        s.makeUp = false
+        g.change({ bond: 1, joy: 10 })
+        toast('All is forgiven. {n} snuggles up again', 0)
+      } else if (item.hand) toast(t.id === 'carrot' ? '{n} nibbled it right from your hand' : t.line, 0)
+      else if (t.line) toast(t.line, 2)
+      if (t.id === 'strawberry' && s.now - s.lastBinky > 12) {
+        fx.burst('heart', _v.copy(world.bunny.head).add(_v2.set(0, 0.12, 0)), 5)
+        binky()
+        return
+      }
     } else if (item.kind === 'food') {
       g.change({ food: 45, joy: 5, bond: 1 })
       toast('Yum! {n} cleaned the bowl', 0)
@@ -401,6 +413,7 @@ export default function Bunny() {
     s.nudgeCooldown = s.now + 1.0
     fx.burst('sparkle', ball.pos, 8)
     sfx.happy()
+    buzz(12)
     useGame.getState().change({ joy: 4, bond: 0.6 })
     useGame.getState().progress('fetch')
     react('Jump', { speed: 1.1 })
@@ -424,6 +437,7 @@ export default function Bunny() {
     fx.burst('confetti', _v.copy(world.bunny.pos).setY(0.4), 50)
     fx.burst('heart', world.bunny.head, 8)
     sfx.binky()
+    buzz([20, 40, 30])
     toast('Binky! {n} is overjoyed', 0, 'big')
     useGame.getState().change({ bond: 2 })
   }
@@ -438,7 +452,13 @@ export default function Bunny() {
     useGame.getState().change({ joy: -6 })
     fx.burst('grump', world.bunny.head, 6)
     sfx.thump()
+    buzz(40)
+    s.makeUp = true
     toast(DISLIKE_LINES[kind] || DISLIKE_LINES.rough, 0)
+    if (!s.makeUpTipShown) {
+      s.makeUpTipShown = true
+      setTimeout(() => useGame.getState().toast('Tip: offer a treat to make up'), 2600)
+    }
     react('No')
     s.afterReact = () => {
       // Hop a short distance away from the camera.
@@ -507,6 +527,14 @@ export default function Bunny() {
     const g = useGame.getState()
     const r = Math.random()
     s.nextIdleAct = s.now + 3.5 + Math.random() * 4.5
+    if (g.night && g.scene === 'bedroom' && Math.random() < 0.55) {
+      // Late at night the bunny mostly dozes in a loaf.
+      hold('Sit', 6 + Math.random() * 4)
+      s.loaf = true
+      s.nextIdleAct = s.now + 8
+      if (Math.random() < 0.5) sfx.yawn()
+      return
+    }
     if (r < 0.32) {
       // Wander, mostly staying near the middle where it is easy to pet.
       const bun = world.bunny
@@ -578,6 +606,7 @@ export default function Bunny() {
       if (g.needs.clean >= 99.5 && s.streak > 3) toast('{n}\'s coat is gleaming', 6)
     } else {
       fx.burst('heart', point, zone === 'face' || zone === 'head' ? 2 : 1)
+      buzz(6)
       sfx.pet(Math.floor(s.streak / 3) % 11)
     }
     if (s.streak === 4) toast(pick(LIKE_LINES[zone]), 4)
@@ -597,7 +626,7 @@ export default function Bunny() {
     s.nextIdleAct = s.now + 6
     if (g.tool === 'treat') {
       if (s.state !== 'eat') {
-        startEat({ kind: 'treat', hand: true })
+        startEat({ kind: 'treat', treat: g.treatKind, hand: true })
         sfx.pop()
       }
       return
@@ -655,6 +684,7 @@ export default function Bunny() {
         const zone = s.zone
         if (zone === 'face') {
           sfx.boop()
+          buzz(15)
           fx.burst('heart', s.downPoint, 3)
           s.squashV -= 1.4
           useGame.getState().change({ joy: 2, bond: 0.3 })
@@ -694,6 +724,33 @@ export default function Bunny() {
     while (world.commands.length) {
       const cmd = world.commands.shift()
       if (cmd.type === 'trick') runTrick(cmd.id, camera)
+      else if (cmd.type === 'goto') {
+        s.eat = null
+        s.munch = 0
+        s.lookMode = 'camera'
+        s.lookUntil = now + 3
+        goTo(cmd.x, cmd.z, {
+          speed: 0.9,
+          clip: 'Run',
+          clipSpeed: 0.9,
+          onArrive: () => {
+            bun.yaw = Math.atan2(camera.position.x - bun.pos.x, camera.position.z - bun.pos.z)
+            fx.burst('heart', bun.head, 3)
+            sfx.happy()
+            react('Yes')
+          }
+        })
+      } else if (cmd.type === 'pose') {
+        // Photo pose: stop, face the camera and look cute.
+        s.eat = null
+        s.munch = 0
+        bun.yaw = Math.atan2(camera.position.x - bun.pos.x, camera.position.z - bun.pos.z)
+        s.lookMode = 'camera'
+        s.lookUntil = now + 4
+        s.nextIdleAct = now + 6
+        hold('Idle', 2.5)
+        play('Idle')
+      }
     }
 
     // First-visit greeting: hop toward the camera.
@@ -706,7 +763,8 @@ export default function Bunny() {
     if (s.petDown && now - s.lastTickAt > 1.5) s.streak = Math.max(0, s.streak - 1)
     if (!s.petDown && now - s.lastTickAt > 2) s.streak = 0
     if (now - s.lastTickAt > 2) s.annoy = Math.max(0, s.annoy - dt * 0.5)
-    g.setBubble(now < s.tiredUntil ? 'tired' : s.streak >= 18 ? 'melting' : null)
+    const dozing = g.night && s.state === 'hold' && s.loaf
+    g.setBubble(now < s.tiredUntil || dozing ? 'tired' : s.streak >= 18 ? 'melting' : null)
 
     if (s.spin > 0) {
       const step = Math.min(s.spin, s.spinSpeed * dt)
@@ -842,7 +900,7 @@ export default function Bunny() {
     // ---- procedural layers on top of the animation ----
     const liked = s.petDown && PREFS[s.zone] > 0 && now >= s.upsetUntil
     const melt = Math.min(1, s.streak / 18)
-    const sleepy = now < s.tiredUntil || (s.state === 'hold' && s.loaf)
+    const sleepy = now < s.tiredUntil || (s.state === 'hold' && s.loaf) || (g.night && s.state === 'idle' && !s.petDown)
     const upsetNow = now < s.upsetUntil
     const k = (rate) => 1 - Math.exp(-rate * dt)
 

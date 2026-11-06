@@ -1,21 +1,44 @@
-import { useEffect, useState } from 'react'
-import { useGame, bondLevel, BOND_LEVELS, TRICKS, ACCESSORIES, GOAL_POOL, moodOf } from '../store'
-import { sendCommand } from '../world'
+import { useEffect, useRef, useState } from 'react'
+import { useGame, bondLevel, BOND_LEVELS, TRICKS, ACCESSORIES, GOAL_POOL, TREATS, moodOf } from '../store'
+import { sendCommand, world } from '../world'
 import { placeBowl } from './Toys'
 import { sfx } from '../audio'
 import Icon from './Icons'
 
 const TOOLS = [
-  { id: 'pet', label: 'Pet', icon: 'hand', tip: 'Stroke slowly over the head, cheeks and back' },
+  { id: 'pet', label: 'Pet', icon: 'hand', tip: 'Stroke slowly over the head and cheeks. Double-tap the floor to call the bunny over' },
   { id: 'brush', label: 'Brush', icon: 'brush', tip: 'Brush along the back to clean the coat' },
-  { id: 'treat', label: 'Treat', icon: 'carrot', tip: 'Tap the bed to drop a carrot, or tap the bunny to hand-feed' },
+  { id: 'treat', label: 'Treat', icon: 'carrot', tip: 'Pick a treat, then tap the floor to drop it or tap the bunny to hand-feed' },
   { id: 'toy', label: 'Ball', icon: 'ball', tip: 'Tap to toss the ball, or swipe to fling it' }
 ]
 
+const METER_TIPS = {
+  Food: 'Tap Feed, or give a treat',
+  Water: 'Tap Water to fill the bowl',
+  Coat: 'Use the Brush on the back',
+  Joy: 'Pet, play and do tricks together'
+}
+
 function Meter({ icon, label, value, hue }) {
   const low = value < 25
+  // Pulse briefly whenever the value goes up.
+  const prev = useRef(value)
+  const [up, setUp] = useState(false)
+  useEffect(() => {
+    if (value > prev.current + 0.5) {
+      setUp(true)
+      const id = setTimeout(() => setUp(false), 600)
+      prev.current = value
+      return () => clearTimeout(id)
+    }
+    prev.current = Math.min(prev.current, value)
+  }, [value])
   return (
-    <div className={`meter ${low ? 'low' : ''}`} title={`${label}: ${Math.round(value)}%`}>
+    <div
+      className={`meter ${low ? 'low' : ''} ${up ? 'up' : ''}`}
+      title={`${label}: ${Math.round(value)}%`}
+      onClick={() => useGame.getState().toast(`${label} ${Math.round(value)}%. ${METER_TIPS[label]}`)}
+    >
       <span className="meter-icon" style={{ color: hue }}><Icon name={icon} size={15} stroke={2.2} /></span>
       <div className="meter-track">
         <div className="meter-fill" style={{ width: `${value}%`, background: low ? '#ff7a6b' : hue }} />
@@ -187,14 +210,112 @@ function ClosetPanel({ onClose }) {
   )
 }
 
+function Toggle({ label, note, value, onChange }) {
+  return (
+    <label className="setting">
+      <span>{label}{note && <small>{note}</small>}</span>
+      <button className={`switch ${value ? 'on' : ''}`} onClick={() => { sfx.click(); onChange(!value) }} role="switch" aria-checked={value}><i /></button>
+    </label>
+  )
+}
+
+function Slider({ label, value, onChange, disabled }) {
+  return (
+    <label className={`setting ${disabled ? 'disabled' : ''}`}>
+      <span>{label}</span>
+      <input type="range" min="0" max="1" step="0.05" value={value} disabled={disabled} onChange={(e) => onChange(parseFloat(e.target.value))} />
+    </label>
+  )
+}
+
+function SettingsPanel({ onClose }) {
+  const st = useGame((s) => s.settings)
+  const set = useGame((s) => s.setSetting)
+  return (
+    <div className="card panel">
+      <div className="panel-head">
+        <span>Settings</span>
+        <button className="panel-close" onClick={onClose} aria-label="Close"><Icon name="close" size={16} /></button>
+      </div>
+      <Toggle label="Sound" value={!st.muted} onChange={(v) => set('muted', !v)} />
+      <Slider label="Music" value={st.music} disabled={st.muted} onChange={(v) => set('music', v)} />
+      <Slider label="Effects" value={st.sfx} disabled={st.muted} onChange={(v) => set('sfx', v)} />
+      <Toggle label="Vibration" note="Android only" value={st.haptics} onChange={(v) => set('haptics', v)} />
+      <Toggle label="Reduce motion" note="Fewer particles and bounces" value={st.reduceMotion} onChange={(v) => set('reduceMotion', v)} />
+      <Toggle label="Battery saver" note="Simpler lighting for older phones" value={st.lowPower} onChange={(v) => set('lowPower', v)} />
+    </div>
+  )
+}
+
+function TreatPicker() {
+  const kind = useGame((s) => s.treatKind)
+  const setKind = useGame((s) => s.setTreatKind)
+  const icons = { carrot: 'carrot', strawberry: 'strawberry', parsley: 'leaf', banana: 'banana' }
+  return (
+    <div className="treat-picker">
+      {TREATS.map((t) => (
+        <button key={t.id} className={`treat-chip treat-${t.id} ${kind === t.id ? 'on' : ''}`} onClick={() => { sfx.click(); setKind(t.id) }}>
+          <Icon name={icons[t.id]} size={18} />
+          <span>{t.label}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function PhotoOverlay() {
+  const photo = useGame((s) => s.photo)
+  const name = useGame((s) => s.name)
+  if (!photo) return null
+  const close = () => useGame.setState({ photo: null })
+  const file = `${name.replace(/[^a-z0-9]+/gi, '-').toLowerCase() || 'bunny'}-photo.jpg`
+  const share = async () => {
+    try {
+      const blob = await (await fetch(photo)).blob()
+      const f = new File([blob], file, { type: 'image/jpeg' })
+      if (navigator.canShare && navigator.canShare({ files: [f] })) {
+        await navigator.share({ files: [f], title: `${name} the bunny` })
+        return
+      }
+    } catch (e) {
+      if (e && e.name === 'AbortError') return
+    }
+    useGame.getState().toast('Sharing is not supported here. Use Save instead')
+  }
+  return (
+    <div className="photo-overlay" onClick={close}>
+      <div className="photo-card" onClick={(e) => e.stopPropagation()}>
+        <img src={photo} alt={`Photo of ${name}`} />
+        <div className="photo-actions">
+          <a className="photo-btn" href={photo} download={file}><Icon name="download" size={18} /> Save</a>
+          <button className="photo-btn" onClick={share}><Icon name="share" size={18} /> Share</button>
+          <button className="photo-btn ghost" onClick={close}>Close</button>
+        </div>
+        <small>On iPhone, use Share, then Save Image</small>
+      </div>
+    </div>
+  )
+}
+
 export default function UI() {
   const needs = useGame((s) => s.needs)
   const tool = useGame((s) => s.tool)
   const setTool = useGame((s) => s.setTool)
   const scene = useGame((s) => s.scene)
   const setScene = useGame((s) => s.setScene)
-  const muted = useGame((s) => s.muted)
-  const setMuted = useGame((s) => s.setMuted)
+  const [flash, setFlash] = useState(false)
+  const takePhoto = () => {
+    setPanel(null)
+    sendCommand({ type: 'pose' })
+    world.resetCamera = true // frame the bunny nicely first
+    setFlash('pose')
+    setTimeout(() => {
+      world.photoRequest = true
+      sfx.camera()
+      setFlash('flash')
+      setTimeout(() => setFlash(false), 450)
+    }, 900)
+  }
   const items = useGame((s) => s.items)
   const lvl = bondLevel(needs.bond)
   const [tip, setTip] = useState(null)
@@ -222,7 +343,7 @@ export default function UI() {
   }, [tip])
 
   return (
-    <div className="hud">
+    <div className={`hud ${flash ? 'posing' : ''}`}>
       <div className="card status">
         <div className="status-head">
           <NameTag />
@@ -239,12 +360,11 @@ export default function UI() {
 
       <div className="top-right">
         <button
-          className="round-btn"
+          className="round-btn icon-only"
           onClick={() => { sfx.click(); setScene(scene === 'bedroom' ? 'garden' : 'bedroom') }}
           aria-label={scene === 'bedroom' ? 'Go to the garden' : 'Go to the bedroom'}
         >
           <Icon name={scene === 'bedroom' ? 'tree' : 'home'} size={20} />
-          <span>{scene === 'bedroom' ? 'Garden' : 'Bedroom'}</span>
         </button>
         <button className={`round-btn icon-only ${panel === 'goals' ? 'active' : ''}`} onClick={() => togglePanel('goals')} aria-label="Daily goals">
           <Icon name="star" size={20} />
@@ -253,13 +373,22 @@ export default function UI() {
         <button className={`round-btn icon-only ${panel === 'closet' ? 'active' : ''}`} onClick={() => togglePanel('closet')} aria-label="Closet">
           <Icon name="bow" size={20} />
         </button>
-        <button className="round-btn icon-only" onClick={() => setMuted(!muted)} aria-label={muted ? 'Unmute' : 'Mute'}>
-          <Icon name={muted ? 'soundOff' : 'soundOn'} size={20} />
+        <button className="round-btn icon-only" onClick={takePhoto} aria-label="Take a photo">
+          <Icon name="camera" size={20} />
+        </button>
+        <button className="round-btn icon-only" onClick={() => { sfx.click(); world.resetCamera = true }} aria-label="Re-centre camera">
+          <Icon name="target" size={20} />
+        </button>
+        <button className={`round-btn icon-only ${panel === 'settings' ? 'active' : ''}`} onClick={() => togglePanel('settings')} aria-label="Settings">
+          <Icon name="gear" size={20} />
         </button>
       </div>
 
       {panel === 'goals' && <GoalsPanel onClose={() => setPanel(null)} />}
       {panel === 'closet' && <ClosetPanel onClose={() => setPanel(null)} />}
+      {panel === 'settings' && <SettingsPanel onClose={() => setPanel(null)} />}
+      {flash === 'flash' && <div className="camera-flash" />}
+      <PhotoOverlay />
       <Toasts />
       {tip ? <div className="tool-tip">{tip}</div> : <Hint />}
       <LevelBanner />
@@ -299,6 +428,7 @@ export default function UI() {
             <span>Water</span>
           </button>
         </div>
+        {tool === 'treat' && <TreatPicker />}
         <div className="dock">
           {TOOLS.map((t) => (
             <button key={t.id} className={`tool ${tool === t.id ? 'active' : ''} ${nudge[t.id] && tool !== t.id ? 'nudge' : ''}`} onClick={() => chooseTool(t)}>

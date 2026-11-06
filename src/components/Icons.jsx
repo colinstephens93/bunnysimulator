@@ -24,6 +24,14 @@ const P = {
   check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
   bow: <><path d="M12 12L4.5 7.5v9zM12 12l7.5-4.5v9z" /><circle cx="12" cy="12" r="1.8" /></>,
   close: <path d="M6 6l12 12M18 6L6 18" />,
+  camera: <><path d="M4 8h3l2-2.5h6L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" /><circle cx="12" cy="13" r="3.5" /></>,
+  target: <><circle cx="12" cy="12" r="7" /><circle cx="12" cy="12" r="2" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /></>,
+  gear: <><circle cx="12" cy="12" r="3" /><path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6" /><circle cx="12" cy="12" r="6.5" /></>,
+  strawberry: <><path d="M12 8c4 0 7 1.5 7 4.5S15.5 21 12 21 5 15.5 5 12.5 8 8 12 8z" /><path d="M9 5.5L12 8l3-2.5M12 8V3.5" /><path d="M9.5 12h.01M14.5 12h.01M12 15h.01M10 17.5h.01M14 17.5h.01" /></>,
+  leaf: <><path d="M5 19c0-9 6-14 15-14 0 9-5 15-14 15" /><path d="M5 19l8-8" /></>,
+  banana: <><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="5" /><path d="M12 10.5v.01M10.7 13v.01M13.3 13v.01" /></>,
+  share: <><path d="M12 15V3.5M8 7.5l4-4 4 4" /><path d="M5 12v7.5h14V12" /></>,
+  download: <><path d="M12 3.5V15M8 11l4 4 4-4" /><path d="M5 19.5h14" /></>,
   zzz: <path d="M5 6h6l-6 8h6M14 4h5l-5 6h5" />
 }
 

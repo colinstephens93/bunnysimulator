@@ -2,7 +2,8 @@ import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { RoundedBox, Sparkles } from '@react-three/drei'
 import * as THREE from 'three'
-import { quiltTexture, knitTexture, woodTexture, rugTexture, plasterTexture, skyTexture, beamTexture } from '../textures'
+import { quiltTexture, knitTexture, woodTexture, rugTexture, plasterTexture, skyTexture, nightSkyTexture, beamTexture } from '../textures'
+import { useGame } from '../store'
 
 const FLOOR_Y = -0.78
 
@@ -125,17 +126,20 @@ export default function Bedroom() {
   const wood = useMemo(woodTexture, [])
   const rug = useMemo(rugTexture, [])
   const plaster = useMemo(plasterTexture, [])
-  const sky = useMemo(skyTexture, [])
+  const night = useGame((st) => st.night)
+  const daySky = useMemo(skyTexture, [])
+  const nightSky = useMemo(nightSkyTexture, [])
+  const sky = night ? nightSky : daySky
   const beam = useMemo(beamTexture, [])
 
   return (
     <group>
-      <fog attach="fog" args={['#4a2c1e', 7, 15]} />
-      <hemisphereLight args={['#ffd9b5', '#6e4a3a', 0.75]} />
+      <fog attach="fog" args={[night ? '#15101f' : '#4a2c1e', 7, 15]} />
+      <hemisphereLight args={night ? ['#7d80c0', '#2a1e2a', 0.5] : ['#ffd9b5', '#6e4a3a', 0.75]} />
       <directionalLight
         position={[-2.5, 4.5, -4.5]}
-        intensity={3.2}
-        color="#ffb46e"
+        intensity={night ? 1.1 : 3.2}
+        color={night ? '#a9b8ff' : '#ffb46e'}
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-bias={-0.0004}
@@ -147,8 +151,8 @@ export default function Bedroom() {
         shadow-camera-near={1}
         shadow-camera-far={14}
       />
-      <directionalLight position={[2, 3, 5]} intensity={0.9} color="#ffe6d0" />
-      <pointLight position={[2.45, 0.75, -1.25]} intensity={2.2} distance={4} decay={2} color="#ffb26b" />
+      <directionalLight position={[2, 3, 5]} intensity={night ? 0.35 : 0.9} color={night ? '#c4c8ff' : '#ffe6d0'} />
+      <pointLight position={[2.45, 0.75, -1.25]} intensity={night ? 5 : 2.2} distance={night ? 6 : 4} decay={2} color="#ffb26b" />
 
       {/* Room shell */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, FLOOR_Y, 0]} receiveShadow>
@@ -198,7 +202,7 @@ export default function Bedroom() {
       {[-0.6, 0.15, 0.8].map((x, i) => (
         <mesh key={i} position={[x + 0.4, 0.9, -0.9]} rotation={[-0.75, 0.25, -0.1]}>
           <planeGeometry args={[0.55 - i * 0.08, 3]} />
-          <meshBasicMaterial map={beam} transparent opacity={0.07} depthWrite={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} toneMapped={false} />
+          <meshBasicMaterial map={beam} color={night ? '#9fb0ff' : '#ffffff'} transparent opacity={night ? 0.035 : 0.07} depthWrite={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} toneMapped={false} />
         </mesh>
       ))}
       <Sparkles count={70} scale={[3.2, 2, 2.4]} position={[0, 0.9, -0.3]} size={2.2} speed={0.25} opacity={0.7} color="#ffe2b0" />

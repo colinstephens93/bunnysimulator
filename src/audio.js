@@ -9,6 +9,8 @@ let musicBus = null
 let reverb = null
 let noiseBuf = null
 let muted = false
+let musicVol = 0.7
+let sfxVol = 0.8
 let scene = 'bedroom'
 let musicTimer = null
 let birdTimer = null
@@ -53,12 +55,12 @@ export function initAudio() {
   wet.connect(master)
 
   sfxBus = ctx.createGain()
-  sfxBus.gain.value = 0.7
+  sfxBus.gain.value = 0.85 * sfxVol
   sfxBus.connect(master)
   sfxBus.connect(reverb)
 
   musicBus = ctx.createGain()
-  musicBus.gain.value = 0.16
+  musicBus.gain.value = 0.22 * musicVol
   musicBus.connect(master)
   musicBus.connect(reverb)
 
@@ -72,6 +74,14 @@ export function initAudio() {
 export function setMuted(m) {
   muted = m
   if (master) master.gain.setTargetAtTime(m ? 0 : 0.9, ctx.currentTime, 0.08)
+}
+
+export function setVolumes(music, effects) {
+  musicVol = music
+  sfxVol = effects
+  if (!ctx) return
+  musicBus.gain.setTargetAtTime(0.22 * music, ctx.currentTime, 0.05)
+  sfxBus.gain.setTargetAtTime(0.85 * effects, ctx.currentTime, 0.05)
 }
 
 export function setAudioScene(s) {
@@ -182,6 +192,13 @@ export const sfx = {
   nope() {
     tone(midi(76), { vol: 0.05, dur: 0.12 })
     tone(midi(71), { vol: 0.05, dur: 0.18, when: 0.12 })
+  },
+  camera() {
+    noise({ dur: 0.05, vol: 0.2, freq: 3000, q: 0.7 })
+    noise({ dur: 0.08, vol: 0.12, freq: 1500, q: 0.7, when: 0.07 })
+  },
+  yawn() {
+    tone(520, { vol: 0.05, dur: 0.7, glide: 300, attack: 0.15, vibrato: 4 })
   },
   pop() {
     tone(600, { vol: 0.08, dur: 0.1, glide: 260 })
