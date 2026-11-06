@@ -1,14 +1,17 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, Environment, ContactShadows } from '@react-three/drei'
 import Bunny from './components/Bunny'
 import Bed from './components/Bed'
 import UI from './components/UI'
+import Hand from './components/Hand'
 
 export default function App() {
-  const [tool, setTool] = useState('hand') // 'hand' | 'brush'
+  const [tool, setTool] = useState('hand')
   const [muted, setMuted] = useState(false)
   const [isLandscape, setIsLandscape] = useState(true)
+  const [comfort, setComfort] = useState(40)
+  const [irritation, setIrritation] = useState(10)
 
   useEffect(() => {
     const checkOrientation = () => {
@@ -21,6 +24,22 @@ export default function App() {
       window.removeEventListener('resize', checkOrientation)
       window.removeEventListener('orientationchange', checkOrientation)
     }
+  }, [])
+
+  // Slowly decay states toward neutral
+  useEffect(() => {
+    const id = setInterval(() => {
+      setComfort(c => Math.max(0, c - 0.4))
+      setIrritation(i => Math.max(0, i - 0.6))
+    }, 200)
+    return () => clearInterval(id)
+  }, [])
+
+  const handleStroke = useCallback((pointer, currentTool) => {
+    // Simple zone-agnostic feedback for now
+    const gain = currentTool === 'brush' ? 3 : 2
+    setComfort(c => Math.min(100, c + gain))
+    setIrritation(i => Math.max(0, i - 1))
   }, [])
 
   return (
@@ -58,7 +77,8 @@ export default function App() {
         />
         <Environment preset="sunset" />
         <Bed />
-        <Bunny tool={tool} />
+        <Bunny tool={tool} comfort={comfort} irritation={irritation} />
+        <Hand tool={tool} onStroke={handleStroke} />
         <ContactShadows position={[0, 0, 0]} opacity={0.4} scale={8} blur={2.5} far={4} />
         <OrbitControls enablePan={false} minPolarAngle={Math.PI / 3} maxPolarAngle={Math.PI / 2.2} />
       </Canvas>
