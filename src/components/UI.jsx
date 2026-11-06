@@ -1,4 +1,8 @@
-export default function UI({ tool, setTool, muted, setMuted, hunger, thirst, cleanliness, bond, onCare }) {
+export default function UI({
+  tool, setTool, muted, setMuted,
+  hunger, thirst, cleanliness, bond,
+  mode, setMode, onCare, onTrick, onCall
+}) {
   const needColor = (v, invert = false) => {
     const val = invert ? 100 - v : v
     if (val > 70) return '#e85d4c'
@@ -8,7 +12,7 @@ export default function UI({ tool, setTool, muted, setMuted, hunger, thirst, cle
 
   return (
     <>
-      {/* Status indicators */}
+      {/* Status */}
       <div style={{
         position: 'fixed',
         top: 'max(16px, env(safe-area-inset-top))',
@@ -30,18 +34,50 @@ export default function UI({ tool, setTool, muted, setMuted, hunger, thirst, cle
         <div style={{ color: '#aed6f1' }}>Bond: {Math.round(bond)}</div>
       </div>
 
-      {/* Care actions */}
+      {/* Mode + Call */}
+      <div style={{
+        position: 'fixed',
+        top: 'max(16px, env(safe-area-inset-top))',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        display: 'flex',
+        gap: '8px',
+        zIndex: 10
+      }}>
+        <button onClick={() => setMode(mode === 'home' ? 'walk' : 'home')} style={careBtn}>
+          {mode === 'home' ? 'Walk' : 'Home'}
+        </button>
+        <button onClick={onCall} style={careBtn}>Call</button>
+      </div>
+
+      {/* Care + Treats */}
       <div style={{
         position: 'fixed',
         bottom: 'max(16px, env(safe-area-inset-bottom))',
         left: 'max(16px, env(safe-area-inset-left))',
         display: 'flex',
         gap: '8px',
-        zIndex: 10
+        zIndex: 10,
+        flexWrap: 'wrap',
+        maxWidth: '60%'
       }}>
         <button onClick={() => onCare('feed')} style={careBtn}>Feed</button>
         <button onClick={() => onCare('water')} style={careBtn}>Water</button>
         <button onClick={() => onCare('brush')} style={careBtn}>Brush</button>
+        <button onClick={() => onCare('treat')} style={careBtn}>Treat</button>
+      </div>
+
+      {/* Tricks */}
+      <div style={{
+        position: 'fixed',
+        bottom: 'max(70px, env(safe-area-inset-bottom) + 54px)',
+        left: 'max(16px, env(safe-area-inset-left))',
+        display: 'flex',
+        gap: '8px',
+        zIndex: 10
+      }}>
+        <button onClick={() => onTrick('sit')} style={careBtn}>Sit</button>
+        <button onClick={() => onTrick('lie')} style={careBtn}>Lie</button>
       </div>
 
       {/* Tool toggle */}
@@ -86,7 +122,7 @@ export default function UI({ tool, setTool, muted, setMuted, hunger, thirst, cle
         </button>
       </div>
 
-      {/* Audio toggle */}
+      {/* Mute */}
       <button
         onClick={() => setMuted(m => !m)}
         style={{

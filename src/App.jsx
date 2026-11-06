@@ -7,12 +7,33 @@ import UI from './components/UI'
 import Hand from './components/Hand'
 import Audio from './components/Audio'
 
+function Outdoor() {
+  return (
+    <group>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
+        <planeGeometry args={[12, 12]} />
+        <meshStandardMaterial color="#8fbc6a" roughness={0.9} />
+      </mesh>
+      <mesh position={[-2.5, 0.4, -1.5]} castShadow>
+        <sphereGeometry args={[0.6, 16, 16]} />
+        <meshStandardMaterial color="#5a8a3a" />
+      </mesh>
+      <mesh position={[2.2, 0.3, -2]} castShadow>
+        <sphereGeometry args={[0.45, 16, 16]} />
+        <meshStandardMaterial color="#6b9a4a" />
+      </mesh>
+    </group>
+  )
+}
+
 export default function App() {
   const [tool, setTool] = useState('hand')
   const [muted, setMuted] = useState(false)
   const [isLandscape, setIsLandscape] = useState(true)
+  const [mode, setMode] = useState('home') // home | walk
+  const [pose, setPose] = useState('stand')
+  const [called, setCalled] = useState(false)
 
-  // Core states
   const [comfort, setComfort] = useState(50)
   const [irritation, setIrritation] = useState(5)
   const [hunger, setHunger] = useState(30)
@@ -24,7 +45,6 @@ export default function App() {
   const lastComfort = useRef(50)
   const lastIrritation = useRef(5)
 
-  // Load saved state
   useEffect(() => {
     try {
       const saved = localStorage.getItem('goldenHourBunny')
@@ -39,16 +59,13 @@ export default function App() {
     } catch (e) {}
   }, [])
 
-  // Save state
   useEffect(() => {
     const data = { comfort, hunger, thirst, cleanliness, bond }
     localStorage.setItem('goldenHourBunny', JSON.stringify(data))
   }, [comfort, hunger, thirst, cleanliness, bond])
 
   useEffect(() => {
-    const checkOrientation = () => {
-      setIsLandscape(window.innerWidth > window.innerHeight)
-    }
+    const checkOrientation = () => setIsLandscape(window.innerWidth > window.innerHeight)
     checkOrientation()
     window.addEventListener('resize', checkOrientation)
     window.addEventListener('orientationchange', checkOrientation)
@@ -58,7 +75,6 @@ export default function App() {
     }
   }, [])
 
-  // Needs decay
   useEffect(() => {
     const id = setInterval(() => {
       setHunger(h => Math.min(100, h + 0.4))
@@ -113,7 +129,24 @@ export default function App() {
       setCleanliness(c => Math.min(100, c + 25))
       setComfort(c => Math.min(100, c + 5))
       setBond(b => Math.min(100, b + 2))
+    } else if (action === 'treat') {
+      setHunger(h => Math.max(0, h - 15))
+      setComfort(c => Math.min(100, c + 12))
+      setBond(b => Math.min(100, b + 6))
     }
+  }, [])
+
+  const handleTrick = useCallback((trick) => {
+    setPose(trick)
+    setBond(b => Math.min(100, b + 1.5))
+    setComfort(c => Math.min(100, c + 3))
+    setTimeout(() => setPose('stand'), 2800)
+  }, [])
+
+  const handleCall = useCallback(() => {
+    setCalled(true)
+    bunnyRef.current?.come?.()
+    setTimeout(() => setCalled(false), 2000)
   }, [])
 
   return (
@@ -139,20 +172,20 @@ export default function App() {
       <Audio muted={muted} tool={tool} />
 
       <Canvas
-        camera={{ position: [0, 1.2, 3.5], fov: 45 }}
+        camera={{ position: [0, 1.2, mode === 'walk' ? 4.2 : 3.5], fov: 45 }}
         dpr={[1, 2]}
         gl={{ antialias: true, powerPreference: 'high-performance' }}
       >
-        <color attach="background" args={['#2a1f14']} />
-        <ambientLight intensity={0.35} />
+        <color attach="background" args={[mode === 'walk' ? '#87ceeb' : '#2a1f14']} />
+        <ambientLight intensity={mode === 'walk' ? 0.55 : 0.35} />
         <directionalLight
           position={[4, 6, 2]}
-          intensity={1.8}
-          color="#ffd6a5"
+          intensity={mode === 'walk' ? 1.4 : 1.8}
+          color={mode === 'walk' ? '#fff4e0' : '#ffd6a5'}
           castShadow
         />
-        <Environment preset="sunset" />
-        <Bed />
+        <Environment preset={mode === 'walk' ? 'park' : 'sunset'} />
+        {mode === 'home' ? <Bed /> : <Outdoor />}
         <Bunny
           ref={bunnyRef}
           comfort={comfort}
@@ -161,6 +194,8 @@ export default function App() {
           thirst={thirst}
           cleanliness={cleanliness}
           bond={bond}
+          pose={pose}
+          called={called}
           onZoneHit={handleZoneHit}
         />
         <Hand tool={tool} onStroke={() => setComfort(c => Math.min(100, c + 0.8))} />
@@ -177,7 +212,11 @@ export default function App() {
         thirst={thirst}
         cleanliness={cleanliness}
         bond={bond}
+        mode={mode}
+        setMode={setMode}
         onCare={handleCare}
+        onTrick={handleTrick}
+        onCall={handleCall}
       />
     </>
   )
