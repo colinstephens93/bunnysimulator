@@ -1,14 +1,24 @@
+import { useState } from 'react'
+
 export default function UI({
   tool, setTool, muted, setMuted,
   hunger, thirst, cleanliness, bond,
   mode, setMode, onCare, onTrick, onCall,
-  bunnyName = 'Bun'
+  bunnyName = 'Bun', setBunnyName
 }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(bunnyName)
+
   const needColor = (v, invert = false) => {
     const val = invert ? 100 - v : v
     if (val > 70) return '#e85d4c'
     if (val > 40) return '#f0b429'
     return '#7dcea0'
+  }
+
+  const saveName = () => {
+    if (draft.trim()) setBunnyName(draft.trim())
+    setEditing(false)
   }
 
   return (
@@ -24,13 +34,37 @@ export default function UI({
         zIndex: 10,
         fontSize: '12px',
         color: '#fff',
-        background: 'rgba(0,0,0,0.4)',
-        backdropFilter: 'blur(10px)',
+        background: 'rgba(0,0,0,0.45)',
+        backdropFilter: 'blur(12px)',
         padding: '10px 14px',
         borderRadius: '14px',
-        minWidth: '110px'
+        minWidth: '120px'
       }}>
-        <div style={{ fontWeight: 600, fontSize: '14px', marginBottom: '4px' }}>{bunnyName}</div>
+        {editing ? (
+          <input
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            onBlur={saveName}
+            onKeyDown={e => e.key === 'Enter' && saveName()}
+            autoFocus
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#fff',
+              fontSize: '14px',
+              fontWeight: 600,
+              outline: 'none',
+              width: '100%'
+            }}
+          />
+        ) : (
+          <div
+            onClick={() => { setDraft(bunnyName); setEditing(true) }}
+            style={{ fontWeight: 600, fontSize: '14px', marginBottom: '4px', cursor: 'pointer' }}
+          >
+            {bunnyName}
+          </div>
+        )}
         <div style={{ color: needColor(hunger, true) }}>Hunger: {Math.round(hunger)}</div>
         <div style={{ color: needColor(thirst, true) }}>Thirst: {Math.round(thirst)}</div>
         <div style={{ color: needColor(cleanliness) }}>Coat: {Math.round(cleanliness)}</div>

@@ -3,27 +3,11 @@ import { Canvas } from '@react-three/fiber'
 import { OrbitControls, Environment, ContactShadows } from '@react-three/drei'
 import Bunny from './components/Bunny'
 import Bed from './components/Bed'
+import Outdoor from './components/Outdoor'
+import CareVisuals from './components/CareVisuals'
 import UI from './components/UI'
 import Hand from './components/Hand'
 import Audio from './components/Audio'
-
-function Outdoor() {
-  return (
-    <group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
-        <planeGeometry args={[14, 14]} />
-        <meshStandardMaterial color="#7cb342" roughness={0.85} />
-      </mesh>
-      {/* Simple bushes */}
-      {[[-3, -1.2], [2.5, -1.8], [-1.5, -2.5], [3.2, -0.8]].map(([x, z], i) => (
-        <mesh key={i} position={[x, 0.35, z]} castShadow>
-          <sphereGeometry args={[0.45 + (i % 2) * 0.15, 12, 12]} />
-          <meshStandardMaterial color={i % 2 ? '#558b2f' : '#689f38'} />
-        </mesh>
-      ))}
-    </group>
-  )
-}
 
 export default function App() {
   const [tool, setTool] = useState('hand')
@@ -32,7 +16,8 @@ export default function App() {
   const [mode, setMode] = useState('home')
   const [pose, setPose] = useState('stand')
   const [called, setCalled] = useState(false)
-  const [bunnyName] = useState('Bun')
+  const [bunnyName, setBunnyName] = useState('Bun')
+  const [careAction, setCareAction] = useState(null)
 
   const [comfort, setComfort] = useState(50)
   const [irritation, setIrritation] = useState(5)
@@ -55,13 +40,16 @@ export default function App() {
         setThirst(data.thirst ?? 25)
         setCleanliness(data.cleanliness ?? 70)
         setBond(data.bond ?? 40)
+        if (data.name) setBunnyName(data.name)
       }
     } catch (e) {}
   }, [])
 
   useEffect(() => {
-    localStorage.setItem('goldenHourBunny', JSON.stringify({ comfort, hunger, thirst, cleanliness, bond }))
-  }, [comfort, hunger, thirst, cleanliness, bond])
+    localStorage.setItem('goldenHourBunny', JSON.stringify({
+      comfort, hunger, thirst, cleanliness, bond, name: bunnyName
+    }))
+  }, [comfort, hunger, thirst, cleanliness, bond, bunnyName])
 
   useEffect(() => {
     const check = () => setIsLandscape(window.innerWidth > window.innerHeight)
@@ -133,16 +121,12 @@ export default function App() {
       setComfort(c => Math.min(100, c + 12))
       setBond(b => Math.min(100, b + 6))
     }
+    setCareAction(action)
     bunnyRef.current?.reactHappy?.()
   }, [])
 
   const handleTrick = useCallback((trick) => {
-    if (trick === 'lie') {
-      // No dedicated Lie clip — treat as Sit for now
-      setPose('sit')
-    } else {
-      setPose(trick)
-    }
+    setPose(trick === 'lie' ? 'sit' : trick)
     setBond(b => Math.min(100, b + 1.5))
     setComfort(c => Math.min(100, c + 3))
     setTimeout(() => setPose('stand'), 3200)
@@ -177,15 +161,15 @@ export default function App() {
       <Audio muted={muted} tool={tool} />
 
       <Canvas
-        camera={{ position: [0, 1.15, mode === 'walk' ? 4.0 : 3.4], fov: 42 }}
+        camera={{ position: [0, 1.15, mode === 'walk' ? 4.2 : 3.4], fov: 42 }}
         dpr={[1, 2]}
         gl={{ antialias: true, powerPreference: 'high-performance' }}
       >
-        <color attach="background" args={[mode === 'walk' ? '#87ceeb' : '#2a1f14']} />
-        <ambientLight intensity={mode === 'walk' ? 0.6 : 0.4} />
+        <color attach="background" args={[mode === 'walk' ? '#87ceeb' : '#3e2723']} />
+        <ambientLight intensity={mode === 'walk' ? 0.65 : 0.45} />
         <directionalLight
           position={[4, 6, 2]}
-          intensity={mode === 'walk' ? 1.5 : 1.9}
+          intensity={mode === 'walk' ? 1.6 : 2.0}
           color={mode === 'walk' ? '#fff8e1' : '#ffd6a5'}
           castShadow
         />
@@ -203,8 +187,9 @@ export default function App() {
           called={called}
           onZoneHit={handleZoneHit}
         />
+        <CareVisuals action={careAction} onDone={() => setCareAction(null)} />
         <Hand tool={tool} onStroke={() => setComfort(c => Math.min(100, c + 0.8))} />
-        <ContactShadows position={[0, 0, 0]} opacity={0.45} scale={8} blur={2.5} far={4} />
+        <ContactShadows position={[0, 0, 0]} opacity={0.5} scale={10} blur={2.8} far={5} />
         <OrbitControls enablePan={false} minPolarAngle={Math.PI / 3.2} maxPolarAngle={Math.PI / 2.1} />
       </Canvas>
 
@@ -223,6 +208,7 @@ export default function App() {
         onTrick={handleTrick}
         onCall={handleCall}
         bunnyName={bunnyName}
+        setBunnyName={setBunnyName}
       />
     </>
   )
