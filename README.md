@@ -1,14 +1,38 @@
 # Golden Hour Bunny
 
-A lightweight, visually stunning 3D web experience for iPhone Mobile Safari in Landscape mode.
+A cozy 3D bunny companion for mobile Safari (landscape or portrait) and desktop browsers.
 
-Sit on a sunlit bed during golden hour and interact with a lifelike cream-colored rabbit using a 3D hand or grooming brush. No scores, no timers — just realistic body language, fur response, warm lighting, and a relaxing lo-fi atmosphere.
+Visit your bunny in a sunlit bedroom or a golden-hour garden. Stroke it, brush it, feed it carrots from your hand, toss a ball for it to chase, and teach it tricks as your bond grows.
+
+## How to play
+
+- **Pet**: stroke slowly with your finger. Forehead and cheeks are favourites, back strokes are nice, ears are sensitive, and the rump and paws are off limits. Keep a gentle streak going and the bunny melts: eyes close, ears relax, cheeks blush, and it tooth-purrs. Max out its joy and it does a binky.
+- **Tap the nose** for a boop.
+- **Brush** along the back to clean the coat (a scruffy coat looks dull).
+- **Treat**: tap the bed or grass to drop a carrot, or tap the bunny to hand-feed it.
+- **Ball**: tap anywhere to toss a woven ball. The bunny chases and nudges it around, and takes a breather after a while.
+- **Feed / Water** place bowls next to the bunny.
+- **Tricks** (Come, Sit up, Wave, Binky, Twirl) unlock with bond levels 1 to 5.
+
+Needs (food, water, coat, joy) drift down slowly over time and progress is saved in the browser.
 
 ## Stack
 
 - Vite + React
-- React Three Fiber + Drei
-- Three.js
+- React Three Fiber, Drei, @react-three/postprocessing (bloom, vignette, ACES tone mapping)
+- Zustand for game state
+- Web Audio API for all sound (procedural, no audio files)
+
+## Code layout
+
+- `src/store.js`: needs, bond levels, tricks, toasts, persistence
+- `src/world.js`: per-frame shared state (bunny position, ball, commands)
+- `src/audio.js`: sound effects and ambient music box
+- `src/components/Bunny.jsx`: model, animation mixer, behaviour state machine, petting
+- `src/components/Toys.jsx`: ball physics, treats, bowls
+- `src/components/Particles.jsx`: pooled instanced hearts, sparkles, fur puffs, confetti
+- `src/components/Bedroom.jsx`, `Garden.jsx`: environments
+- `src/components/UI.jsx`, `src/index.css`: HUD
 
 ## Development
 
@@ -16,11 +40,3 @@ Sit on a sunlit bed during golden hour and interact with a lifelike cream-colore
 npm install
 npm run dev
 ```
-
-Open on iPhone Safari (or any modern browser) and rotate to landscape.
-
-## Status
-
-Initial scaffold with placeholder bunny geometry, bed, golden-hour lighting, orientation prompt, and minimal UI (hand/brush toggle + mute). Next steps: real assets, shell fur, behavioral state machine, raycast interaction, and audio.
-
-GitHub repo: https://github.com/colinstephens93/bunnysimulator

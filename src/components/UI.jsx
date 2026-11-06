@@ -1,197 +1,229 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useGame, bondLevel, BOND_LEVELS, TRICKS, moodOf } from '../store'
+import { sendCommand } from '../world'
+import { placeBowl } from './Toys'
+import { sfx } from '../audio'
+import Icon from './Icons'
 
-export default function UI({
-  tool, setTool, muted, setMuted,
-  hunger, thirst, cleanliness, bond,
-  mode, setMode, onCare, onTrick, onCall,
-  bunnyName = 'Bun', setBunnyName, mood = 'content'
-}) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(bunnyName)
+const TOOLS = [
+  { id: 'pet', label: 'Pet', icon: 'hand', tip: 'Stroke slowly over the head, cheeks and back' },
+  { id: 'brush', label: 'Brush', icon: 'brush', tip: 'Brush along the back to clean the coat' },
+  { id: 'treat', label: 'Treat', icon: 'carrot', tip: 'Tap the bed to drop a carrot, or tap the bunny to hand-feed' },
+  { id: 'toy', label: 'Ball', icon: 'ball', tip: 'Tap anywhere to toss the ball and play' }
+]
 
-  const needColor = (v, invert = false) => {
-    const val = invert ? 100 - v : v
-    if (val > 70) return '#e85d4c'
-    if (val > 40) return '#f0b429'
-    return '#7dcea0'
-  }
-
-  const moodEmoji = mood === 'happy' ? '♥️' : mood === 'needy' ? '😯' : '😊'
-
-  const saveName = () => {
-    if (draft.trim()) setBunnyName(draft.trim())
-    setEditing(false)
-  }
-
+function Meter({ icon, label, value, hue }) {
+  const low = value < 25
   return (
-    <>
-      {/* Name + Status */}
-      <div style={{
-        position: 'fixed',
-        top: 'max(16px, env(safe-area-inset-top))',
-        left: 'max(16px, env(safe-area-inset-left))',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '4px',
-        zIndex: 10,
-        fontSize: '12px',
-        color: '#fff',
-        background: 'rgba(0,0,0,0.45)',
-        backdropFilter: 'blur(12px)',
-        padding: '10px 14px',
-        borderRadius: '14px',
-        minWidth: '120px'
-      }}>
-        {editing ? (
-          <input
-            value={draft}
-            onChange={e => setDraft(e.target.value)}
-            onBlur={saveName}
-            onKeyDown={e => e.key === 'Enter' && saveName()}
-            autoFocus
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: '#fff',
-              fontSize: '14px',
-              fontWeight: 600,
-              outline: 'none',
-              width: '100%'
-            }}
-          />
-        ) : (
-          <div
-            onClick={() => { setDraft(bunnyName); setEditing(true) }}
-            style={{ fontWeight: 600, fontSize: '14px', marginBottom: '4px', cursor: 'pointer' }}
-          >
-            {bunnyName} {moodEmoji}
-          </div>
-        )}
-        <div style={{ color: needColor(hunger, true) }}>Hunger: {Math.round(hunger)}</div>
-        <div style={{ color: needColor(thirst, true) }}>Thirst: {Math.round(thirst)}</div>
-        <div style={{ color: needColor(cleanliness) }}>Coat: {Math.round(cleanliness)}</div>
-        <div style={{ color: '#aed6f1' }}>Bond: {Math.round(bond)}</div>
+    <div className={`meter ${low ? 'low' : ''}`} title={`${label}: ${Math.round(value)}%`}>
+      <span className="meter-icon" style={{ color: hue }}><Icon name={icon} size={15} stroke={2.2} /></span>
+      <div className="meter-track">
+        <div className="meter-fill" style={{ width: `${value}%`, background: low ? '#ff7a6b' : hue }} />
       </div>
-
-      {/* Mode + Call */}
-      <div style={{
-        position: 'fixed',
-        top: 'max(16px, env(safe-area-inset-top))',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        display: 'flex',
-        gap: '8px',
-        zIndex: 10
-      }}>
-        <button onClick={() => setMode(mode === 'home' ? 'walk' : 'home')} style={careBtn}>
-          {mode === 'home' ? 'Walk' : 'Home'}
-        </button>
-        <button onClick={onCall} style={careBtn}>Call</button>
-      </div>
-
-      {/* Care */}
-      <div style={{
-        position: 'fixed',
-        bottom: 'max(16px, env(safe-area-inset-bottom))',
-        left: 'max(16px, env(safe-area-inset-left))',
-        display: 'flex',
-        gap: '8px',
-        zIndex: 10,
-        flexWrap: 'wrap',
-        maxWidth: '55%'
-      }}>
-        <button onClick={() => onCare('feed')} style={careBtn}>Feed</button>
-        <button onClick={() => onCare('water')} style={careBtn}>Water</button>
-        <button onClick={() => onCare('brush')} style={careBtn}>Brush</button>
-        <button onClick={() => onCare('treat')} style={careBtn}>Treat</button>
-      </div>
-
-      {/* Tricks */}
-      <div style={{
-        position: 'fixed',
-        bottom: 'max(72px, env(safe-area-inset-bottom) + 56px)',
-        left: 'max(16px, env(safe-area-inset-left))',
-        display: 'flex',
-        gap: '8px',
-        zIndex: 10
-      }}>
-        <button onClick={() => onTrick('sit')} style={careBtn}>Sit</button>
-        <button onClick={() => onTrick('lie')} style={careBtn}>Lie</button>
-      </div>
-
-      {/* Tool toggle */}
-      <div style={{
-        position: 'fixed',
-        bottom: 'max(16px, env(safe-area-inset-bottom))',
-        right: 'max(16px, env(safe-area-inset-right))',
-        display: 'flex',
-        background: 'rgba(255,255,255,0.12)',
-        backdropFilter: 'blur(12px)',
-        borderRadius: '999px',
-        padding: '6px',
-        zIndex: 10
-      }}>
-        <button
-          onClick={() => setTool('hand')}
-          style={{
-            background: tool === 'hand' ? 'rgba(255,255,255,0.25)' : 'transparent',
-            border: 'none',
-            color: '#fff',
-            padding: '10px 16px',
-            borderRadius: '999px',
-            fontSize: '14px',
-            cursor: 'pointer'
-          }}
-        >
-          Hand
-        </button>
-        <button
-          onClick={() => setTool('brush')}
-          style={{
-            background: tool === 'brush' ? 'rgba(255,255,255,0.25)' : 'transparent',
-            border: 'none',
-            color: '#fff',
-            padding: '10px 16px',
-            borderRadius: '999px',
-            fontSize: '14px',
-            cursor: 'pointer'
-          }}
-        >
-          Brush
-        </button>
-      </div>
-
-      {/* Mute */}
-      <button
-        onClick={() => setMuted(m => !m)}
-        style={{
-          position: 'fixed',
-          top: 'max(16px, env(safe-area-inset-top))',
-          right: 'max(16px, env(safe-area-inset-right))',
-          background: 'rgba(255,255,255,0.1)',
-          border: 'none',
-          color: '#fff',
-          width: 36,
-          height: 36,
-          borderRadius: '50%',
-          fontSize: '16px',
-          cursor: 'pointer',
-          zIndex: 10
-        }}
-      >
-        {muted ? '🔇' : '🔊'}
-      </button>
-    </>
+    </div>
   )
 }
 
-const careBtn = {
-  background: 'rgba(255,255,255,0.18)',
-  border: 'none',
-  color: '#fff',
-  padding: '10px 14px',
-  borderRadius: '10px',
-  fontSize: '13px',
-  cursor: 'pointer',
-  backdropFilter: 'blur(8px)'
+function BondHearts({ bond }) {
+  const lvl = bondLevel(bond)
+  const lo = BOND_LEVELS[lvl - 1]
+  const hi = BOND_LEVELS[lvl] ?? 100
+  const pct = lvl >= 5 ? 100 : ((bond - lo) / (hi - lo)) * 100
+  return (
+    <div className="bond" title={`Bond level ${lvl}`}>
+      <div className="bond-hearts">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <span key={i} className={i <= lvl ? 'on' : ''}><Icon name="heart" size={13} fill="currentColor" stroke={1.5} /></span>
+        ))}
+      </div>
+      <div className="bond-track"><div style={{ width: `${pct}%` }} /></div>
+    </div>
+  )
+}
+
+function NameTag() {
+  const name = useGame((s) => s.name)
+  const setName = useGame((s) => s.setName)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(name)
+  const save = () => {
+    const v = draft.trim().slice(0, 16)
+    if (v) setName(v)
+    setEditing(false)
+  }
+  if (editing) {
+    return (
+      <input
+        className="name-input"
+        value={draft}
+        maxLength={16}
+        autoFocus
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={save}
+        onKeyDown={(e) => e.key === 'Enter' && save()}
+      />
+    )
+  }
+  return (
+    <button className="name" onClick={() => { setDraft(name); setEditing(true) }} aria-label="Rename bunny">
+      {name}
+      <Icon name="pencil" size={12} />
+    </button>
+  )
+}
+
+function Toasts() {
+  const toasts = useGame((s) => s.toasts)
+  return (
+    <div className="toasts">
+      {toasts.map((t) => <div key={t.id} className={`toast ${t.kind}`}>{t.text}</div>)}
+    </div>
+  )
+}
+
+function Hint() {
+  const hint = useGame((s) => s.hint)
+  const setHint = useGame((s) => s.setHint)
+  const name = useGame((s) => s.name)
+  useEffect(() => {
+    if (hint !== 'tools') return
+    const id = setTimeout(() => setHint(null), 7000)
+    return () => clearTimeout(id)
+  }, [hint, setHint])
+  if (!hint) return null
+  return (
+    <div className="hint" onClick={() => setHint(hint === 'pet' ? 'tools' : null)}>
+      {hint === 'pet' ? (
+        <>
+          <span className="hint-hand"><Icon name="hand" size={20} /></span>
+          Slowly stroke {name}&apos;s head with your finger
+        </>
+      ) : (
+        <>Lovely! Try the treat and ball below, and teach tricks on the right</>
+      )}
+    </div>
+  )
+}
+
+function LevelBanner() {
+  const levelUp = useGame((s) => s.levelUp)
+  const [shown, setShown] = useState(0)
+  useEffect(() => {
+    if (!levelUp) return
+    setShown(levelUp)
+    const id = setTimeout(() => setShown(0), 3200)
+    return () => clearTimeout(id)
+  }, [levelUp])
+  if (!shown) return null
+  return (
+    <div className="level-banner">
+      <div className="level-hearts">{Array.from({ length: shown }, (_, i) => <Icon key={i} name="heart" size={26} fill="currentColor" stroke={1} />)}</div>
+      <div className="level-title">Bond level {shown}</div>
+    </div>
+  )
+}
+
+export default function UI() {
+  const needs = useGame((s) => s.needs)
+  const tool = useGame((s) => s.tool)
+  const setTool = useGame((s) => s.setTool)
+  const scene = useGame((s) => s.scene)
+  const setScene = useGame((s) => s.setScene)
+  const muted = useGame((s) => s.muted)
+  const setMuted = useGame((s) => s.setMuted)
+  const items = useGame((s) => s.items)
+  const lvl = bondLevel(needs.bond)
+  const [tip, setTip] = useState(null)
+
+  const chooseTool = (t) => {
+    sfx.click()
+    setTool(t.id)
+    setTip(t.tip)
+  }
+  useEffect(() => {
+    if (!tip) return
+    const id = setTimeout(() => setTip(null), 2600)
+    return () => clearTimeout(id)
+  }, [tip])
+
+  return (
+    <div className="hud">
+      <div className="card status">
+        <div className="status-head">
+          <NameTag />
+          <span className="mood">{moodOf(needs)}</span>
+        </div>
+        <BondHearts bond={needs.bond} />
+        <div className="meters">
+          <Meter icon="carrot" label="Food" value={needs.food} hue="#ffa94d" />
+          <Meter icon="drop" label="Water" value={needs.water} hue="#5cc8ff" />
+          <Meter icon="sparkle" label="Coat" value={needs.clean} hue="#c9a7ff" />
+          <Meter icon="smile" label="Joy" value={needs.joy} hue="#ff7eb3" />
+        </div>
+      </div>
+
+      <div className="top-right">
+        <button
+          className="round-btn"
+          onClick={() => { sfx.click(); setScene(scene === 'bedroom' ? 'garden' : 'bedroom') }}
+          aria-label={scene === 'bedroom' ? 'Go to the garden' : 'Go to the bedroom'}
+        >
+          <Icon name={scene === 'bedroom' ? 'tree' : 'home'} size={20} />
+          <span>{scene === 'bedroom' ? 'Garden' : 'Bedroom'}</span>
+        </button>
+        <button className="round-btn icon-only" onClick={() => setMuted(!muted)} aria-label={muted ? 'Unmute' : 'Mute'}>
+          <Icon name={muted ? 'soundOff' : 'soundOn'} size={20} />
+        </button>
+      </div>
+
+      <Toasts />
+      {tip ? <div className="tool-tip">{tip}</div> : <Hint />}
+      <LevelBanner />
+
+      <div className="tricks">
+        {TRICKS.map((t) => {
+          const locked = lvl < t.level
+          return (
+            <button
+              key={t.id}
+              className={`trick ${locked ? 'locked' : ''}`}
+              onClick={() => {
+                if (locked) {
+                  sfx.nope()
+                  useGame.getState().toast(`Reach bond level ${t.level} to unlock ${t.label}`)
+                  return
+                }
+                sfx.click()
+                sendCommand({ type: 'trick', id: t.id })
+              }}
+            >
+              <Icon name={locked ? 'lock' : t.id} size={16} />
+              <span>{t.label}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      <div className="bottom">
+        <div className="care">
+          <button className="care-btn" disabled={items.some((i) => i.kind === 'food')} onClick={() => placeBowl('food')}>
+            <Icon name="bowl" size={22} />
+            <span>Feed</span>
+          </button>
+          <button className="care-btn water" disabled={items.some((i) => i.kind === 'water')} onClick={() => placeBowl('water')}>
+            <Icon name="drop" size={22} />
+            <span>Water</span>
+          </button>
+        </div>
+        <div className="dock">
+          {TOOLS.map((t) => (
+            <button key={t.id} className={`tool ${tool === t.id ? 'active' : ''}`} onClick={() => chooseTool(t)}>
+              <Icon name={t.icon} size={24} />
+              <span>{t.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
 }

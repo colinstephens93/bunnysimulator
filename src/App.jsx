@@ -1,241 +1,203 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { Canvas } from '@react-three/fiber'
-import { OrbitControls, Environment, ContactShadows } from '@react-three/drei'
+import { Suspense, useEffect, useRef, useState } from 'react'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { OrbitControls, Environment, Lightformer, ContactShadows, useProgress } from '@react-three/drei'
+import { EffectComposer, Bloom, Vignette, ToneMapping } from '@react-three/postprocessing'
+import { ToneMappingMode } from 'postprocessing'
+import * as THREE from 'three'
 import Bunny from './components/Bunny'
-import Bed from './components/Bed'
-import Outdoor from './components/Outdoor'
-import CareVisuals from './components/CareVisuals'
+import Bedroom from './components/Bedroom'
+import Garden from './components/Garden'
+import Particles, { fx } from './components/Particles'
+import { Ball, Items, throwBall, dropTreat } from './components/Toys'
 import UI from './components/UI'
-import Hand from './components/Hand'
-import Audio from './components/Audio'
+import { useGame } from './store'
+import { world, setScene as setWorldScene } from './world'
+import { initAudio, setMuted as setAudioMuted, setAudioScene, sfx } from './audio'
+
+const _v = new THREE.Vector3()
+
+// Keeps the orbit target gently following the bunny, and freezes orbiting
+// while the player is stroking it.
+function CameraRig() {
+  const controls = useThree((s) => s.controls)
+  const camera = useThree((s) => s.camera)
+  const size = useThree((s) => s.size)
+
+  useEffect(() => {
+    world.controls = controls
+  }, [controls])
+
+  useEffect(() => {
+    const portrait = size.width < size.height
+    camera.fov = portrait ? 62 : 42
+    camera.updateProjectionMatrix()
+  }, [size, camera])
+
+  useFrame((_, dt) => {
+    if (!controls) return
+    controls.enabled = !world.petting
+    const bun = world.bunny.pos
+    _v.set(bun.x * 0.75, 0.3, bun.z * 0.75).sub(controls.target).multiplyScalar(1 - Math.exp(-2.5 * Math.min(dt, 0.05)))
+    controls.target.add(_v)
+    camera.position.add(_v)
+  })
+  return null
+}
+
+function BunnyShadow() {
+  const ref = useRef()
+  useFrame(() => {
+    ref.current.position.set(world.bunny.pos.x, 0.004, world.bunny.pos.z)
+  })
+  return (
+    <group ref={ref}>
+      <ContactShadows scale={1.1} far={0.7} resolution={256} blur={2.2} opacity={0.55} color="#3a2010" />
+    </group>
+  )
+}
+
+// Invisible floor that receives taps for dropping treats and throwing the ball.
+function PlaySurface({ scene }) {
+  const down = useRef(null)
+  const b = world.bounds
+  const w = b.maxX - b.minX + 0.6
+  const d = b.maxZ - b.minZ + 0.6
+  return (
+    <mesh
+      rotation={[-Math.PI / 2, 0, 0]}
+      position={[(b.minX + b.maxX) / 2, 0.003, (b.minZ + b.maxZ) / 2]}
+      onPointerDown={(e) => { down.current = { x: e.clientX, y: e.clientY, t: performance.now() } }}
+      onPointerUp={(e) => {
+        const s = down.current
+        down.current = null
+        if (!s || Math.hypot(e.clientX - s.x, e.clientY - s.y) > 10 || performance.now() - s.t > 400) return
+        const tool = useGame.getState().tool
+        if (tool === 'treat') dropTreat(e.point)
+        else if (tool === 'toy') throwBall(e.point, e.camera)
+      }}
+      key={scene}
+    >
+      <planeGeometry args={[w, d]} />
+      <meshBasicMaterial visible={false} />
+    </mesh>
+  )
+}
+
+function Scene() {
+  const scene = useGame((s) => s.scene)
+  return (
+    <>
+      {scene === 'bedroom' ? <Bedroom /> : <Garden />}
+      <Environment resolution={128} frames={1}>
+        <Lightformer form="rect" intensity={2.2} color="#ffc58f" position={[0, 2, -5]} scale={[8, 3, 1]} />
+        <Lightformer form="circle" intensity={1.6} color="#fff1e0" position={[3, 3, 4]} scale={3} />
+        <Lightformer form="rect" intensity={0.8} color="#ffc9d6" position={[-5, 1, 1]} rotation-y={Math.PI / 2} scale={[5, 2, 1]} />
+        <Lightformer form="rect" intensity={0.5} color="#fff" position={[0, 6, 0]} rotation-x={Math.PI / 2} scale={[6, 6, 1]} />
+      </Environment>
+      <Bunny />
+      <Items />
+      <Ball />
+      <Particles />
+      <PlaySurface scene={scene} />
+      <BunnyShadow />
+    </>
+  )
+}
+
+function StartScreen({ onStart }) {
+  const { active, progress } = useProgress()
+  const name = useGame((s) => s.name)
+  const firstVisit = useGame((s) => s.firstVisit)
+  const ready = !active && progress >= 100
+  return (
+    <div className="start">
+      <div className="start-card">
+        <div className="start-sun" />
+        <h1>Golden Hour Bunny</h1>
+        <p>{firstVisit ? 'A sleepy little bunny is waiting for a friend.' : `${name} missed you.`}</p>
+        <button className="start-btn" disabled={!ready} onClick={onStart}>
+          {ready ? (firstVisit ? 'Meet your bunny' : `Visit ${name}`) : `Loading ${Math.round(progress)}%`}
+        </button>
+        <small>Best with sound on</small>
+      </div>
+    </div>
+  )
+}
 
 export default function App() {
-  const [tool, setTool] = useState('hand')
-  const [muted, setMuted] = useState(false)
-  const [isLandscape, setIsLandscape] = useState(true)
-  const [mode, setMode] = useState('home')
-  const [pose, setPose] = useState('stand')
-  const [called, setCalled] = useState(false)
-  const [bunnyName, setBunnyName] = useState('Bun')
-  const [careAction, setCareAction] = useState(null)
-  const [isFirstOpen, setIsFirstOpen] = useState(false)
+  const [started, setStarted] = useState(false)
+  const scene = useGame((s) => s.scene)
+  const muted = useGame((s) => s.muted)
 
-  const [comfort, setComfort] = useState(50)
-  const [irritation, setIrritation] = useState(5)
-  const [hunger, setHunger] = useState(30)
-  const [thirst, setThirst] = useState(25)
-  const [cleanliness, setCleanliness] = useState(70)
-  const [bond, setBond] = useState(40)
-
-  const bunnyRef = useRef()
-  const audioRef = useRef()
-  const lastComfort = useRef(50)
-  const lastIrritation = useRef(5)
-
+  // Needs tick once a second (paused while the tab is hidden).
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('goldenHourBunny')
-      if (saved) {
-        const data = JSON.parse(saved)
-        setComfort(data.comfort ?? 50)
-        setHunger(data.hunger ?? 30)
-        setThirst(data.thirst ?? 25)
-        setCleanliness(data.cleanliness ?? 70)
-        setBond(data.bond ?? 40)
-        if (data.name) setBunnyName(data.name)
-        setIsFirstOpen(false)
-      } else {
-        setIsFirstOpen(true)
-      }
-    } catch (e) {
-      setIsFirstOpen(true)
-    }
-  }, [])
-
-  useEffect(() => {
-    localStorage.setItem('goldenHourBunny', JSON.stringify({
-      comfort, hunger, thirst, cleanliness, bond, name: bunnyName
-    }))
-  }, [comfort, hunger, thirst, cleanliness, bond, bunnyName])
-
-  useEffect(() => {
-    const check = () => setIsLandscape(window.innerWidth > window.innerHeight)
-    check()
-    window.addEventListener('resize', check)
-    window.addEventListener('orientationchange', check)
-    return () => {
-      window.removeEventListener('resize', check)
-      window.removeEventListener('orientationchange', check)
-    }
-  }, [])
-
-  useEffect(() => {
+    if (!started) return
     const id = setInterval(() => {
-      setHunger(h => Math.min(100, h + 0.35))
-      setThirst(t => Math.min(100, t + 0.45))
-      setCleanliness(c => Math.max(0, c - 0.12))
-      setComfort(c => Math.max(0, c - 0.2))
-      setIrritation(i => Math.max(0, i - 0.35))
-      if (hunger > 70 || thirst > 70 || cleanliness < 30) {
-        setBond(b => Math.max(0, b - 0.15))
-      }
-    }, 220)
+      if (!document.hidden) useGame.getState().tick(1)
+    }, 1000)
     return () => clearInterval(id)
-  }, [hunger, thirst, cleanliness])
+  }, [started])
 
   useEffect(() => {
-    if (comfort > 92 && lastComfort.current <= 92 && bunnyRef.current?.triggerBinky) {
-      bunnyRef.current.triggerBinky()
-    }
-    if (irritation > 65 && lastIrritation.current <= 65 && bunnyRef.current?.triggerThump) {
-      bunnyRef.current.triggerThump()
-    }
-    lastComfort.current = comfort
-    lastIrritation.current = irritation
-  }, [comfort, irritation])
-
-  const handleZoneHit = useCallback((zone) => {
-    const gain = tool === 'brush' ? 3.5 : 2.4
-    if (zone === 'head') {
-      setComfort(c => Math.min(100, c + gain))
-      setBond(b => Math.min(100, b + 0.8))
-      setIrritation(i => Math.max(0, i - 1.5))
-      audioRef.current?.playSound(tool === 'brush' ? 'brush' : 'pet')
-    } else if (zone === 'back') {
-      setComfort(c => Math.min(100, c + gain * 0.7))
-      setBond(b => Math.min(100, b + 0.5))
-      if (tool === 'brush') {
-        setCleanliness(c => Math.min(100, c + 1.2))
-        audioRef.current?.playSound('brush')
-      } else {
-        audioRef.current?.playSound('pet')
-      }
-    } else if (zone === 'hind') {
-      setIrritation(i => Math.min(100, i + 7))
-      setComfort(c => Math.max(0, c - 2))
-    }
-  }, [tool])
-
-  const handleCare = useCallback((action) => {
-    if (action === 'feed') {
-      setHunger(h => Math.max(0, h - 45))
-      setComfort(c => Math.min(100, c + 8))
-      setBond(b => Math.min(100, b + 3))
-      audioRef.current?.playSound('feed')
-    } else if (action === 'water') {
-      setThirst(t => Math.max(0, t - 50))
-      setComfort(c => Math.min(100, c + 6))
-      setBond(b => Math.min(100, b + 2))
-      audioRef.current?.playSound('feed')
-    } else if (action === 'brush') {
-      setCleanliness(c => Math.min(100, c + 25))
-      setComfort(c => Math.min(100, c + 5))
-      setBond(b => Math.min(100, b + 2))
-      audioRef.current?.playSound('brush')
-    } else if (action === 'treat') {
-      setHunger(h => Math.max(0, h - 15))
-      setComfort(c => Math.min(100, c + 12))
-      setBond(b => Math.min(100, b + 6))
-      audioRef.current?.playSound('treat')
-      bunnyRef.current?.reactTreat?.()
-      return
-    }
-    setCareAction(action)
-    bunnyRef.current?.reactHappy?.()
+    const resume = () => initAudio()
+    window.addEventListener('pointerdown', resume)
+    return () => window.removeEventListener('pointerdown', resume)
   }, [])
 
-  const handleTrick = useCallback((trick) => {
-    setPose(trick === 'lie' ? 'sit' : trick)
-    setBond(b => Math.min(100, b + 1.5))
-    setComfort(c => Math.min(100, c + 3))
-    setTimeout(() => setPose('stand'), 3200)
-  }, [])
+  useEffect(() => setAudioMuted(muted), [muted])
 
-  const handleCall = useCallback(() => {
-    setCalled(true)
-    bunnyRef.current?.come?.()
-    setTimeout(() => setCalled(false), 2200)
-  }, [])
+  useEffect(() => {
+    setWorldScene(scene)
+    setAudioScene(scene)
+  }, [scene])
 
-  const mood = bond > 75 && comfort > 70 ? 'happy' : hunger > 65 || thirst > 65 ? 'needy' : 'content'
+  // Celebrate bond level-ups.
+  useEffect(() => useGame.subscribe((s, prev) => {
+    if (s.levelUp && s.levelUp !== prev.levelUp) {
+      sfx.levelUp()
+      fx.burst('confetti', _v.copy(world.bunny.pos).setY(0.5), 70)
+      fx.burst('heart', world.bunny.head, 10)
+    }
+  }), [])
+
+  const start = () => {
+    initAudio()
+    world.started = true
+    setStarted(true)
+  }
 
   return (
     <>
-      {!isLandscape && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(0,0,0,0.85)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 100,
-          color: '#f5e6d3',
-          fontSize: '1.25rem',
-          textAlign: 'center',
-          padding: '2rem'
-        }}>
-          Rotate your phone to landscape for the best experience
-        </div>
-      )}
-
-      <Audio ref={audioRef} muted={muted} />
-
       <Canvas
-        camera={{ position: [0, 1.15, mode === 'walk' ? 4.2 : 3.4], fov: 42 }}
+        shadows
         dpr={[1, 2]}
-        gl={{ antialias: true, powerPreference: 'high-performance' }}
+        camera={{ position: [0, 1.05, 2.35], fov: 42, near: 0.05, far: 120 }}
+        gl={{ antialias: false, powerPreference: 'high-performance' }}
       >
-        <color attach="background" args={[mode === 'walk' ? '#87ceeb' : '#3e2723']} />
-        <ambientLight intensity={mode === 'walk' ? 0.65 : 0.45} />
-        <directionalLight
-          position={[4, 6, 2]}
-          intensity={mode === 'walk' ? 1.6 : 2.0}
-          color={mode === 'walk' ? '#fff8e1' : '#ffd6a5'}
-          castShadow
+        <color attach="background" args={[scene === 'bedroom' ? '#2b1a12' : '#ffd9b0']} />
+        <Suspense fallback={null}>
+          <Scene />
+        </Suspense>
+        <OrbitControls
+          makeDefault
+          enablePan={false}
+          target={[0, 0.3, 0.15]}
+          minDistance={1.1}
+          maxDistance={4.2}
+          minPolarAngle={Math.PI / 5}
+          maxPolarAngle={Math.PI / 2.15}
+          enableDamping
+          dampingFactor={0.08}
+          rotateSpeed={0.6}
         />
-        <Environment preset={mode === 'walk' ? 'park' : 'sunset'} />
-        {mode === 'home' ? <Bed /> : <Outdoor />}
-        <Bunny
-          ref={bunnyRef}
-          comfort={comfort}
-          irritation={irritation}
-          hunger={hunger}
-          thirst={thirst}
-          cleanliness={cleanliness}
-          bond={bond}
-          pose={pose}
-          called={called}
-          isFirstOpen={isFirstOpen}
-          onZoneHit={handleZoneHit}
-        />
-        <CareVisuals action={careAction} onDone={() => setCareAction(null)} />
-        <Hand tool={tool} onStroke={() => {
-          setComfort(c => Math.min(100, c + 0.8))
-          audioRef.current?.playSound('pet')
-        }} />
-        <ContactShadows position={[0, 0, 0]} opacity={0.5} scale={10} blur={2.8} far={5} />
-        <OrbitControls enablePan={false} minPolarAngle={Math.PI / 3.2} maxPolarAngle={Math.PI / 2.1} />
+        <CameraRig />
+        <EffectComposer multisampling={4}>
+          <Bloom mipmapBlur intensity={0.6} luminanceThreshold={0.85} luminanceSmoothing={0.25} />
+          <Vignette offset={0.25} darkness={0.55} />
+          <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+        </EffectComposer>
       </Canvas>
-
-      <UI
-        tool={tool}
-        setTool={setTool}
-        muted={muted}
-        setMuted={setMuted}
-        hunger={hunger}
-        thirst={thirst}
-        cleanliness={cleanliness}
-        bond={bond}
-        mode={mode}
-        setMode={setMode}
-        onCare={handleCare}
-        onTrick={handleTrick}
-        onCall={handleCall}
-        bunnyName={bunnyName}
-        setBunnyName={setBunnyName}
-        mood={mood}
-      />
+      {started ? <UI /> : <StartScreen onStart={start} />}
     </>
   )
 }
