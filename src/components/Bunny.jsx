@@ -12,16 +12,11 @@ const Bunny = forwardRef(({ comfort = 40, irritation = 10, hunger = 30, thirst =
   const { scene, animations } = useGLTF('/bunny.glb')
   const { actions, mixer } = useAnimations(animations, group)
 
-  // Permanent blink layers
   useEffect(() => {
     const blinkL = actions['IdleBlink_Eye_L']
     const blinkR = actions['IdleBlink_Eye_R']
-    if (blinkL) {
-      blinkL.reset().setLoop(THREE.LoopRepeat, Infinity).fadeIn(0.2).play()
-    }
-    if (blinkR) {
-      blinkR.reset().setLoop(THREE.LoopRepeat, Infinity).fadeIn(0.2).play()
-    }
+    if (blinkL) blinkL.reset().setLoop(THREE.LoopRepeat, Infinity).fadeIn(0.2).play()
+    if (blinkR) blinkR.reset().setLoop(THREE.LoopRepeat, Infinity).fadeIn(0.2).play()
     return () => {
       blinkL?.stop()
       blinkR?.stop()
@@ -32,26 +27,19 @@ const Bunny = forwardRef(({ comfort = 40, irritation = 10, hunger = 30, thirst =
     if (!actions[name]) return
     const next = actions[name]
     const current = actions[currentAnim]
-
-    if (current && current !== next) {
-      current.fadeOut(fade)
-    }
-
+    if (current && current !== next) current.fadeOut(fade)
     next.reset()
     next.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, loop ? Infinity : 1)
     next.clampWhenFinished = !loop
     next.fadeIn(fade).play()
-
     setCurrentAnim(name)
     setHoldingSit(hold)
   }, [actions, currentAnim])
 
-  // Default idle
   useEffect(() => {
     playClip('Idle', { loop: true })
   }, []) // eslint-disable-line
 
-  // One-shot finished → return to Idle (unless sitting hold)
   useEffect(() => {
     const onFinished = (e) => {
       if (holdingSit) return
@@ -63,7 +51,6 @@ const Bunny = forwardRef(({ comfort = 40, irritation = 10, hunger = 30, thirst =
     return () => mixer.removeEventListener('finished', onFinished)
   }, [mixer, actions, currentAnim, holdingSit, playClip])
 
-  // Imperative API
   useImperativeHandle(ref, () => ({
     triggerBinky: () => {
       setHoldingSit(false)
@@ -73,15 +60,17 @@ const Bunny = forwardRef(({ comfort = 40, irritation = 10, hunger = 30, thirst =
       setHoldingSit(false)
       playClip('No', { loop: false })
     },
-    come: () => setComeToward(1)
+    come: () => setComeToward(1),
+    reactHappy: () => {
+      setHoldingSit(false)
+      playClip('Yes', { loop: false })
+    }
   }))
 
-  // Called from App
   useEffect(() => {
     if (called) setComeToward(1)
   }, [called])
 
-  // Zone reactions
   const handleHead = () => {
     onZoneHit?.('head')
     setHoldingSit(false)
@@ -93,7 +82,6 @@ const Bunny = forwardRef(({ comfort = 40, irritation = 10, hunger = 30, thirst =
     playClip('No', { loop: false })
   }
 
-  // Pose / tricks from App
   useEffect(() => {
     if (pose === 'sit') {
       playClip('Sit', { loop: false, hold: true })
@@ -103,32 +91,34 @@ const Bunny = forwardRef(({ comfort = 40, irritation = 10, hunger = 30, thirst =
     }
   }, [pose]) // eslint-disable-line
 
-  // Come / walk toward user
+  // Hungry look-around when idle
   useFrame((_, delta) => {
     if (comeToward > 0) {
       setComeToward(v => Math.max(0, v - delta * 0.7))
-      if (currentAnim !== 'Walk' && currentAnim !== 'Run') {
-        playClip('Walk', { loop: true })
-      }
+      if (currentAnim !== 'Walk') playClip('Walk', { loop: true })
       if (group.current) {
         group.current.position.z = THREE.MathUtils.lerp(group.current.position.z, 0.55, 0.05)
       }
-    } else if (group.current && group.current.position.z !== 0) {
+    } else if (group.current && Math.abs(group.current.position.z) > 0.01) {
       group.current.position.z = THREE.MathUtils.lerp(group.current.position.z, 0, 0.03)
-      if (currentAnim === 'Walk' || currentAnim === 'Run') {
-        playClip('Idle', { loop: true })
-      }
+      if (currentAnim === 'Walk') playClip('Idle', { loop: true })
+    }
+
+    // Subtle hungry head turn when very hungry and idle
+    if (hunger > 75 && currentAnim === 'Idle' && group.current) {
+      group.current.rotation.y = Math.sin(Date.now() * 0.001) * 0.25
+    } else if (group.current) {
+      group.current.rotation.y = THREE.MathUtils.lerp(group.current.rotation.y, 0, 0.05)
     }
   })
 
-  // Random idle fidget
   useEffect(() => {
     let timeout
     const schedule = () => {
-      const delay = 7000 + Math.random() * 7000
+      const delay = 8000 + Math.random() * 6000
       timeout = setTimeout(() => {
         if (currentAnim === 'Idle' && !holdingSit) {
-          const fidget = Math.random() > 0.5 ? 'Wave' : 'Yes'
+          const fidget = Math.random() > 0.6 ? 'Wave' : 'Yes'
           playClip(fidget, { loop: false })
         }
         schedule()
@@ -139,8 +129,7 @@ const Bunny = forwardRef(({ comfort = 40, irritation = 10, hunger = 30, thirst =
   }, [currentAnim, holdingSit, playClip])
 
   return (
-    <group ref={group} position={[0, 0, 0]} scale={1.0}>
-      {/* Hit zones — kept identical */}
+    <group ref={group} position={[0, 0, 0]} scale={1.15}>
       <mesh position={[0, 0.55, 0.25]} visible={false} onPointerDown={handleHead}>
         <sphereGeometry args={[0.22, 8, 8]} />
         <meshBasicMaterial />
@@ -153,7 +142,6 @@ const Bunny = forwardRef(({ comfort = 40, irritation = 10, hunger = 30, thirst =
         <boxGeometry args={[0.3, 0.15, 0.25]} />
         <meshBasicMaterial />
       </mesh>
-
       <primitive object={scene} />
     </group>
   )

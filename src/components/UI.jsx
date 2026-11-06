@@ -1,7 +1,8 @@
 export default function UI({
   tool, setTool, muted, setMuted,
   hunger, thirst, cleanliness, bond,
-  mode, setMode, onCare, onTrick, onCall
+  mode, setMode, onCare, onTrick, onCall,
+  bunnyName = 'Bun'
 }) {
   const needColor = (v, invert = false) => {
     const val = invert ? 100 - v : v
@@ -12,22 +13,24 @@ export default function UI({
 
   return (
     <>
-      {/* Status */}
+      {/* Name + Status */}
       <div style={{
         position: 'fixed',
         top: 'max(16px, env(safe-area-inset-top))',
         left: 'max(16px, env(safe-area-inset-left))',
         display: 'flex',
         flexDirection: 'column',
-        gap: '6px',
+        gap: '4px',
         zIndex: 10,
         fontSize: '12px',
         color: '#fff',
-        background: 'rgba(0,0,0,0.35)',
-        backdropFilter: 'blur(8px)',
-        padding: '8px 12px',
-        borderRadius: '12px'
+        background: 'rgba(0,0,0,0.4)',
+        backdropFilter: 'blur(10px)',
+        padding: '10px 14px',
+        borderRadius: '14px',
+        minWidth: '110px'
       }}>
+        <div style={{ fontWeight: 600, fontSize: '14px', marginBottom: '4px' }}>{bunnyName}</div>
         <div style={{ color: needColor(hunger, true) }}>Hunger: {Math.round(hunger)}</div>
         <div style={{ color: needColor(thirst, true) }}>Thirst: {Math.round(thirst)}</div>
         <div style={{ color: needColor(cleanliness) }}>Coat: {Math.round(cleanliness)}</div>
@@ -50,7 +53,7 @@ export default function UI({
         <button onClick={onCall} style={careBtn}>Call</button>
       </div>
 
-      {/* Care + Treats */}
+      {/* Care */}
       <div style={{
         position: 'fixed',
         bottom: 'max(16px, env(safe-area-inset-bottom))',
@@ -59,7 +62,7 @@ export default function UI({
         gap: '8px',
         zIndex: 10,
         flexWrap: 'wrap',
-        maxWidth: '60%'
+        maxWidth: '55%'
       }}>
         <button onClick={() => onCare('feed')} style={careBtn}>Feed</button>
         <button onClick={() => onCare('water')} style={careBtn}>Water</button>
@@ -70,7 +73,7 @@ export default function UI({
       {/* Tricks */}
       <div style={{
         position: 'fixed',
-        bottom: 'max(70px, env(safe-area-inset-bottom) + 54px)',
+        bottom: 'max(72px, env(safe-area-inset-bottom) + 56px)',
         left: 'max(16px, env(safe-area-inset-left))',
         display: 'flex',
         gap: '8px',
