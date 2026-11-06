@@ -4,7 +4,7 @@ export default function UI({
   tool, setTool, muted, setMuted,
   hunger, thirst, cleanliness, bond,
   mode, setMode, onCare, onTrick, onCall,
-  bunnyName = 'Bun', setBunnyName
+  bunnyName = 'Bun', setBunnyName, mood = 'content'
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(bunnyName)
@@ -15,6 +15,8 @@ export default function UI({
     if (val > 40) return '#f0b429'
     return '#7dcea0'
   }
+
+  const moodEmoji = mood === 'happy' ? '♥️' : mood === 'needy' ? '😯' : '😊'
 
   const saveName = () => {
     if (draft.trim()) setBunnyName(draft.trim())
@@ -62,7 +64,7 @@ export default function UI({
             onClick={() => { setDraft(bunnyName); setEditing(true) }}
             style={{ fontWeight: 600, fontSize: '14px', marginBottom: '4px', cursor: 'pointer' }}
           >
-            {bunnyName}
+            {bunnyName} {moodEmoji}
           </div>
         )}
         <div style={{ color: needColor(hunger, true) }}>Hunger: {Math.round(hunger)}</div>

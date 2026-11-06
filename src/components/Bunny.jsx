@@ -3,11 +3,12 @@ import { useFrame } from '@react-three/fiber'
 import { useGLTF, useAnimations } from '@react-three/drei'
 import * as THREE from 'three'
 
-const Bunny = forwardRef(({ comfort = 40, irritation = 10, hunger = 30, thirst = 25, cleanliness = 70, bond = 40, onZoneHit, pose = 'stand', called = false }, ref) => {
+const Bunny = forwardRef(({ comfort = 40, irritation = 10, hunger = 30, thirst = 25, cleanliness = 70, bond = 40, onZoneHit, pose = 'stand', called = false, isFirstOpen = false }, ref) => {
   const group = useRef()
   const [currentAnim, setCurrentAnim] = useState('Idle')
   const [comeToward, setComeToward] = useState(0)
   const [holdingSit, setHoldingSit] = useState(false)
+  const [greetingDone, setGreetingDone] = useState(false)
 
   const { scene, animations } = useGLTF('/bunny.glb')
   const { actions, mixer } = useAnimations(animations, group)
@@ -36,8 +37,19 @@ const Bunny = forwardRef(({ comfort = 40, irritation = 10, hunger = 30, thirst =
     setHoldingSit(hold)
   }, [actions, currentAnim])
 
+  // First-open greeting
   useEffect(() => {
-    playClip('Idle', { loop: true })
+    if (isFirstOpen && !greetingDone) {
+      setTimeout(() => {
+        setComeToward(1)
+        playClip('Yes', { loop: false })
+        setGreetingDone(true)
+      }, 600)
+    }
+  }, [isFirstOpen, greetingDone, playClip])
+
+  useEffect(() => {
+    if (!isFirstOpen) playClip('Idle', { loop: true })
   }, []) // eslint-disable-line
 
   useEffect(() => {
@@ -64,6 +76,10 @@ const Bunny = forwardRef(({ comfort = 40, irritation = 10, hunger = 30, thirst =
     reactHappy: () => {
       setHoldingSit(false)
       playClip('Yes', { loop: false })
+    },
+    reactTreat: () => {
+      setHoldingSit(false)
+      playClip('Jump', { loop: false })
     }
   }))
 
@@ -91,7 +107,6 @@ const Bunny = forwardRef(({ comfort = 40, irritation = 10, hunger = 30, thirst =
     }
   }, [pose]) // eslint-disable-line
 
-  // Hungry look-around when idle
   useFrame((_, delta) => {
     if (comeToward > 0) {
       setComeToward(v => Math.max(0, v - delta * 0.7))
@@ -104,7 +119,6 @@ const Bunny = forwardRef(({ comfort = 40, irritation = 10, hunger = 30, thirst =
       if (currentAnim === 'Walk') playClip('Idle', { loop: true })
     }
 
-    // Subtle hungry head turn when very hungry and idle
     if (hunger > 75 && currentAnim === 'Idle' && group.current) {
       group.current.rotation.y = Math.sin(Date.now() * 0.001) * 0.25
     } else if (group.current) {
@@ -112,21 +126,22 @@ const Bunny = forwardRef(({ comfort = 40, irritation = 10, hunger = 30, thirst =
     }
   })
 
+  // Surprise moments when bond/comfort high
   useEffect(() => {
     let timeout
     const schedule = () => {
-      const delay = 8000 + Math.random() * 6000
+      const delay = 12000 + Math.random() * 10000
       timeout = setTimeout(() => {
-        if (currentAnim === 'Idle' && !holdingSit) {
-          const fidget = Math.random() > 0.6 ? 'Wave' : 'Yes'
-          playClip(fidget, { loop: false })
+        if (currentAnim === 'Idle' && !holdingSit && bond > 70 && comfort > 75) {
+          const surprise = Math.random() > 0.5 ? 'Wave' : 'Yes'
+          playClip(surprise, { loop: false })
         }
         schedule()
       }, delay)
     }
     schedule()
     return () => clearTimeout(timeout)
-  }, [currentAnim, holdingSit, playClip])
+  }, [currentAnim, holdingSit, bond, comfort, playClip])
 
   return (
     <group ref={group} position={[0, 0, 0]} scale={1.15}>

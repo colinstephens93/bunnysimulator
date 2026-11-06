@@ -18,6 +18,7 @@ export default function App() {
   const [called, setCalled] = useState(false)
   const [bunnyName, setBunnyName] = useState('Bun')
   const [careAction, setCareAction] = useState(null)
+  const [isFirstOpen, setIsFirstOpen] = useState(false)
 
   const [comfort, setComfort] = useState(50)
   const [irritation, setIrritation] = useState(5)
@@ -27,6 +28,7 @@ export default function App() {
   const [bond, setBond] = useState(40)
 
   const bunnyRef = useRef()
+  const audioRef = useRef()
   const lastComfort = useRef(50)
   const lastIrritation = useRef(5)
 
@@ -41,8 +43,13 @@ export default function App() {
         setCleanliness(data.cleanliness ?? 70)
         setBond(data.bond ?? 40)
         if (data.name) setBunnyName(data.name)
+        setIsFirstOpen(false)
+      } else {
+        setIsFirstOpen(true)
       }
-    } catch (e) {}
+    } catch (e) {
+      setIsFirstOpen(true)
+    }
   }, [])
 
   useEffect(() => {
@@ -93,10 +100,16 @@ export default function App() {
       setComfort(c => Math.min(100, c + gain))
       setBond(b => Math.min(100, b + 0.8))
       setIrritation(i => Math.max(0, i - 1.5))
+      audioRef.current?.playSound(tool === 'brush' ? 'brush' : 'pet')
     } else if (zone === 'back') {
       setComfort(c => Math.min(100, c + gain * 0.7))
       setBond(b => Math.min(100, b + 0.5))
-      if (tool === 'brush') setCleanliness(c => Math.min(100, c + 1.2))
+      if (tool === 'brush') {
+        setCleanliness(c => Math.min(100, c + 1.2))
+        audioRef.current?.playSound('brush')
+      } else {
+        audioRef.current?.playSound('pet')
+      }
     } else if (zone === 'hind') {
       setIrritation(i => Math.min(100, i + 7))
       setComfort(c => Math.max(0, c - 2))
@@ -108,18 +121,24 @@ export default function App() {
       setHunger(h => Math.max(0, h - 45))
       setComfort(c => Math.min(100, c + 8))
       setBond(b => Math.min(100, b + 3))
+      audioRef.current?.playSound('feed')
     } else if (action === 'water') {
       setThirst(t => Math.max(0, t - 50))
       setComfort(c => Math.min(100, c + 6))
       setBond(b => Math.min(100, b + 2))
+      audioRef.current?.playSound('feed')
     } else if (action === 'brush') {
       setCleanliness(c => Math.min(100, c + 25))
       setComfort(c => Math.min(100, c + 5))
       setBond(b => Math.min(100, b + 2))
+      audioRef.current?.playSound('brush')
     } else if (action === 'treat') {
       setHunger(h => Math.max(0, h - 15))
       setComfort(c => Math.min(100, c + 12))
       setBond(b => Math.min(100, b + 6))
+      audioRef.current?.playSound('treat')
+      bunnyRef.current?.reactTreat?.()
+      return
     }
     setCareAction(action)
     bunnyRef.current?.reactHappy?.()
@@ -137,6 +156,8 @@ export default function App() {
     bunnyRef.current?.come?.()
     setTimeout(() => setCalled(false), 2200)
   }, [])
+
+  const mood = bond > 75 && comfort > 70 ? 'happy' : hunger > 65 || thirst > 65 ? 'needy' : 'content'
 
   return (
     <>
@@ -158,7 +179,7 @@ export default function App() {
         </div>
       )}
 
-      <Audio muted={muted} tool={tool} />
+      <Audio ref={audioRef} muted={muted} />
 
       <Canvas
         camera={{ position: [0, 1.15, mode === 'walk' ? 4.2 : 3.4], fov: 42 }}
@@ -185,10 +206,14 @@ export default function App() {
           bond={bond}
           pose={pose}
           called={called}
+          isFirstOpen={isFirstOpen}
           onZoneHit={handleZoneHit}
         />
         <CareVisuals action={careAction} onDone={() => setCareAction(null)} />
-        <Hand tool={tool} onStroke={() => setComfort(c => Math.min(100, c + 0.8))} />
+        <Hand tool={tool} onStroke={() => {
+          setComfort(c => Math.min(100, c + 0.8))
+          audioRef.current?.playSound('pet')
+        }} />
         <ContactShadows position={[0, 0, 0]} opacity={0.5} scale={10} blur={2.8} far={5} />
         <OrbitControls enablePan={false} minPolarAngle={Math.PI / 3.2} maxPolarAngle={Math.PI / 2.1} />
       </Canvas>
@@ -209,6 +234,7 @@ export default function App() {
         onCall={handleCall}
         bunnyName={bunnyName}
         setBunnyName={setBunnyName}
+        mood={mood}
       />
     </>
   )

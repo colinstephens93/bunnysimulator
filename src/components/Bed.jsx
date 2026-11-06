@@ -30,19 +30,27 @@ export default function Bed() {
         <boxGeometry args={[0.95, 0.16, 0.5]} />
         <meshStandardMaterial color="#fdf6ef" roughness={0.9} />
       </mesh>
-      {/* Small nightstand */}
+      {/* Nightstand + lamp */}
       <mesh position={[2.4, 0.15, -0.8]} castShadow>
         <boxGeometry args={[0.7, 0.5, 0.5]} />
         <meshStandardMaterial color="#bcaaa4" roughness={0.6} />
       </mesh>
-      {/* Lamp base */}
       <mesh position={[2.4, 0.55, -0.8]} castShadow>
         <cylinderGeometry args={[0.06, 0.08, 0.35, 12]} />
         <meshStandardMaterial color="#d7ccc8" />
       </mesh>
       <mesh position={[2.4, 0.78, -0.8]}>
         <sphereGeometry args={[0.12, 12, 12]} />
-        <meshStandardMaterial color="#fff8e1" emissive="#ffe082" emissiveIntensity={0.4} />
+        <meshStandardMaterial color="#fff8e1" emissive="#ffe082" emissiveIntensity={0.45} />
+      </mesh>
+      {/* Tiny plant */}
+      <mesh position={[-2.3, 0.22, -0.9]} castShadow>
+        <cylinderGeometry args={[0.04, 0.05, 0.15, 8]} />
+        <meshStandardMaterial color="#8d6e63" />
+      </mesh>
+      <mesh position={[-2.3, 0.38, -0.9]}>
+        <sphereGeometry args={[0.1, 10, 10]} />
+        <meshStandardMaterial color="#81c784" />
       </mesh>
     </group>
   )
