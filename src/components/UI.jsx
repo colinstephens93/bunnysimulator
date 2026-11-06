@@ -1,6 +1,49 @@
-export default function UI({ tool, setTool, muted, setMuted }) {
+export default function UI({ tool, setTool, muted, setMuted, hunger, thirst, cleanliness, bond, onCare }) {
+  const needColor = (v, invert = false) => {
+    const val = invert ? 100 - v : v
+    if (val > 70) return '#e85d4c'
+    if (val > 40) return '#f0b429'
+    return '#7dcea0'
+  }
+
   return (
     <>
+      {/* Status indicators */}
+      <div style={{
+        position: 'fixed',
+        top: 'max(16px, env(safe-area-inset-top))',
+        left: 'max(16px, env(safe-area-inset-left))',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '6px',
+        zIndex: 10,
+        fontSize: '12px',
+        color: '#fff',
+        background: 'rgba(0,0,0,0.35)',
+        backdropFilter: 'blur(8px)',
+        padding: '8px 12px',
+        borderRadius: '12px'
+      }}>
+        <div style={{ color: needColor(hunger, true) }}>Hunger: {Math.round(hunger)}</div>
+        <div style={{ color: needColor(thirst, true) }}>Thirst: {Math.round(thirst)}</div>
+        <div style={{ color: needColor(cleanliness) }}>Coat: {Math.round(cleanliness)}</div>
+        <div style={{ color: '#aed6f1' }}>Bond: {Math.round(bond)}</div>
+      </div>
+
+      {/* Care actions */}
+      <div style={{
+        position: 'fixed',
+        bottom: 'max(16px, env(safe-area-inset-bottom))',
+        left: 'max(16px, env(safe-area-inset-left))',
+        display: 'flex',
+        gap: '8px',
+        zIndex: 10
+      }}>
+        <button onClick={() => onCare('feed')} style={careBtn}>Feed</button>
+        <button onClick={() => onCare('water')} style={careBtn}>Water</button>
+        <button onClick={() => onCare('brush')} style={careBtn}>Brush</button>
+      </div>
+
       {/* Tool toggle */}
       <div style={{
         position: 'fixed',
@@ -65,4 +108,15 @@ export default function UI({ tool, setTool, muted, setMuted }) {
       </button>
     </>
   )
+}
+
+const careBtn = {
+  background: 'rgba(255,255,255,0.18)',
+  border: 'none',
+  color: '#fff',
+  padding: '10px 14px',
+  borderRadius: '10px',
+  fontSize: '13px',
+  cursor: 'pointer',
+  backdropFilter: 'blur(8px)'
 }

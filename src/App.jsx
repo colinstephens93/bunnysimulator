@@ -11,12 +11,39 @@ export default function App() {
   const [tool, setTool] = useState('hand')
   const [muted, setMuted] = useState(false)
   const [isLandscape, setIsLandscape] = useState(true)
-  const [comfort, setComfort] = useState(40)
-  const [irritation, setIrritation] = useState(10)
+
+  // Core states
+  const [comfort, setComfort] = useState(50)
+  const [irritation, setIrritation] = useState(5)
+  const [hunger, setHunger] = useState(30)
+  const [thirst, setThirst] = useState(25)
+  const [cleanliness, setCleanliness] = useState(70)
+  const [bond, setBond] = useState(40)
+
   const bunnyRef = useRef()
-  const lastComfort = useRef(40)
-  const lastIrritation = useRef(10)
-  const audioRef = useRef()
+  const lastComfort = useRef(50)
+  const lastIrritation = useRef(5)
+
+  // Load saved state
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('goldenHourBunny')
+      if (saved) {
+        const data = JSON.parse(saved)
+        setComfort(data.comfort ?? 50)
+        setHunger(data.hunger ?? 30)
+        setThirst(data.thirst ?? 25)
+        setCleanliness(data.cleanliness ?? 70)
+        setBond(data.bond ?? 40)
+      }
+    } catch (e) {}
+  }, [])
+
+  // Save state
+  useEffect(() => {
+    const data = { comfort, hunger, thirst, cleanliness, bond }
+    localStorage.setItem('goldenHourBunny', JSON.stringify(data))
+  }, [comfort, hunger, thirst, cleanliness, bond])
 
   useEffect(() => {
     const checkOrientation = () => {
@@ -31,13 +58,20 @@ export default function App() {
     }
   }, [])
 
+  // Needs decay
   useEffect(() => {
     const id = setInterval(() => {
-      setComfort(c => Math.max(0, c - 0.35))
-      setIrritation(i => Math.max(0, i - 0.55))
-    }, 180)
+      setHunger(h => Math.min(100, h + 0.4))
+      setThirst(t => Math.min(100, t + 0.5))
+      setCleanliness(c => Math.max(0, c - 0.15))
+      setComfort(c => Math.max(0, c - 0.25))
+      setIrritation(i => Math.max(0, i - 0.4))
+      if (hunger > 70 || thirst > 70 || cleanliness < 30) {
+        setBond(b => Math.max(0, b - 0.2))
+      }
+    }, 200)
     return () => clearInterval(id)
-  }, [])
+  }, [hunger, thirst, cleanliness])
 
   useEffect(() => {
     if (comfort > 92 && lastComfort.current <= 92 && bunnyRef.current?.triggerBinky) {
@@ -51,20 +85,35 @@ export default function App() {
   }, [comfort, irritation])
 
   const handleZoneHit = useCallback((zone) => {
+    const gain = tool === 'brush' ? 3.5 : 2.4
     if (zone === 'head') {
-      setComfort(c => Math.min(100, c + (tool === 'brush' ? 4.5 : 3.2)))
-      setIrritation(i => Math.max(0, i - 2))
+      setComfort(c => Math.min(100, c + gain))
+      setBond(b => Math.min(100, b + 0.8))
+      setIrritation(i => Math.max(0, i - 1.5))
     } else if (zone === 'back') {
-      setComfort(c => Math.min(100, c + (tool === 'brush' ? 3 : 1.8)))
-      setIrritation(i => Math.max(0, i - 0.5))
+      setComfort(c => Math.min(100, c + gain * 0.7))
+      setBond(b => Math.min(100, b + 0.5))
+      if (tool === 'brush') setCleanliness(c => Math.min(100, c + 1.2))
     } else if (zone === 'hind') {
-      setIrritation(i => Math.min(100, i + 9))
-      setComfort(c => Math.max(0, c - 3))
+      setIrritation(i => Math.min(100, i + 7))
+      setComfort(c => Math.max(0, c - 2))
     }
   }, [tool])
 
-  const handleStroke = useCallback(() => {
-    setComfort(c => Math.min(100, c + 1))
+  const handleCare = useCallback((action) => {
+    if (action === 'feed') {
+      setHunger(h => Math.max(0, h - 45))
+      setComfort(c => Math.min(100, c + 8))
+      setBond(b => Math.min(100, b + 3))
+    } else if (action === 'water') {
+      setThirst(t => Math.max(0, t - 50))
+      setComfort(c => Math.min(100, c + 6))
+      setBond(b => Math.min(100, b + 2))
+    } else if (action === 'brush') {
+      setCleanliness(c => Math.min(100, c + 25))
+      setComfort(c => Math.min(100, c + 5))
+      setBond(b => Math.min(100, b + 2))
+    }
   }, [])
 
   return (
@@ -108,14 +157,28 @@ export default function App() {
           ref={bunnyRef}
           comfort={comfort}
           irritation={irritation}
+          hunger={hunger}
+          thirst={thirst}
+          cleanliness={cleanliness}
+          bond={bond}
           onZoneHit={handleZoneHit}
         />
-        <Hand tool={tool} onStroke={handleStroke} />
+        <Hand tool={tool} onStroke={() => setComfort(c => Math.min(100, c + 0.8))} />
         <ContactShadows position={[0, 0, 0]} opacity={0.4} scale={8} blur={2.5} far={4} />
         <OrbitControls enablePan={false} minPolarAngle={Math.PI / 3} maxPolarAngle={Math.PI / 2.2} />
       </Canvas>
 
-      <UI tool={tool} setTool={setTool} muted={muted} setMuted={setMuted} />
+      <UI
+        tool={tool}
+        setTool={setTool}
+        muted={muted}
+        setMuted={setMuted}
+        hunger={hunger}
+        thirst={thirst}
+        cleanliness={cleanliness}
+        bond={bond}
+        onCare={handleCare}
+      />
     </>
   )
 }
