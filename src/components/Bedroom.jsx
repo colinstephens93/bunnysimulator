@@ -4,6 +4,7 @@ import { RoundedBox, Sparkles } from '@react-three/drei'
 import * as THREE from 'three'
 import { quiltTexture, knitTexture, woodTexture, rugTexture, plasterTexture, skyTexture, nightSkyTexture, beamTexture } from '../textures'
 import { useGame } from '../store'
+import Plush from './Plush'
 
 const FLOOR_Y = -0.78
 
@@ -272,6 +273,8 @@ export default function Bedroom() {
           <meshStandardMaterial color="#fffaf2" roughness={0.3} />
         </mesh>
       </group>
+
+      <Plush />
 
       <Plant position={[-2.55, FLOOR_Y, -1.35]} />
 

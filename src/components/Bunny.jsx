@@ -535,6 +535,21 @@ export default function Bunny() {
       if (Math.random() < 0.5) sfx.yawn()
       return
     }
+    if (g.scene === 'bedroom' && Math.random() < 0.12) {
+      // Visit the duck plush and give it a nuzzle.
+      const px = 1.0
+      const pz = -0.5
+      goTo(px - 0.32, pz + 0.12, {
+        speed: 0.5,
+        arrive: 0.08,
+        onArrive: () => {
+          world.bunny.yaw = Math.atan2(px - world.bunny.pos.x, pz - world.bunny.pos.z)
+          fx.burst('heart', _v.set(px - 0.12, 0.25, pz), 3, { scale: 0.8 })
+          react('Yes', { speed: 0.8 })
+        }
+      })
+      return
+    }
     if (r < 0.32) {
       // Wander, mostly staying near the middle where it is easy to pet.
       const bun = world.bunny

@@ -200,6 +200,10 @@ export const sfx = {
   yawn() {
     tone(520, { vol: 0.05, dur: 0.7, glide: 300, attack: 0.15, vibrato: 4 })
   },
+  squeak() {
+    tone(1100, { vol: 0.08, dur: 0.12, glide: 1700, vibrato: 30 })
+    tone(1500, { vol: 0.05, dur: 0.14, glide: 1100, when: 0.11, vibrato: 30 })
+  },
   pop() {
     tone(600, { vol: 0.08, dur: 0.1, glide: 260 })
   },

@@ -40,10 +40,27 @@ export function sendCommand(cmd) {
   world.commands.push(cmd)
 }
 
+// Solid things on the play surface (per scene), as circles on the ground.
+export const OBSTACLES = {
+  bedroom: [{ x: 1.0, z: -0.5, r: 0.2 }], // duck plush
+  garden: []
+}
+
 export function clampToBounds(v, margin = 0) {
   const b = world.bounds
   v.x = THREE.MathUtils.clamp(v.x, b.minX + margin, b.maxX - margin)
   v.z = THREE.MathUtils.clamp(v.z, b.minZ + margin, b.maxZ - margin)
+  for (const o of OBSTACLES[world.scene] || []) {
+    const dx = v.x - o.x
+    const dz = v.z - o.z
+    const d = Math.hypot(dx, dz)
+    const min = o.r + margin * 0.5
+    if (d < min) {
+      const k = d > 1e-4 ? min / d : 1
+      v.x = o.x + (d > 1e-4 ? dx * k : min)
+      v.z = o.z + (d > 1e-4 ? dz * k : 0)
+    }
+  }
   return v
 }
 
