@@ -5,6 +5,7 @@ import Bunny from './components/Bunny'
 import Bed from './components/Bed'
 import UI from './components/UI'
 import Hand from './components/Hand'
+import Audio from './components/Audio'
 
 export default function App() {
   const [tool, setTool] = useState('hand')
@@ -15,6 +16,7 @@ export default function App() {
   const bunnyRef = useRef()
   const lastComfort = useRef(40)
   const lastIrritation = useRef(10)
+  const audioRef = useRef()
 
   useEffect(() => {
     const checkOrientation = () => {
@@ -37,7 +39,6 @@ export default function App() {
     return () => clearInterval(id)
   }, [])
 
-  // Trigger animations on threshold crossings
   useEffect(() => {
     if (comfort > 92 && lastComfort.current <= 92 && bunnyRef.current?.triggerBinky) {
       bunnyRef.current.triggerBinky()
@@ -85,6 +86,8 @@ export default function App() {
           Rotate your phone to landscape for the best experience
         </div>
       )}
+
+      <Audio muted={muted} tool={tool} />
 
       <Canvas
         camera={{ position: [0, 1.2, 3.5], fov: 45 }}
