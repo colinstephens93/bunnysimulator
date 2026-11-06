@@ -13,6 +13,8 @@ export default function App() {
   const [comfort, setComfort] = useState(40)
   const [irritation, setIrritation] = useState(10)
   const bunnyRef = useRef()
+  const lastComfort = useRef(40)
+  const lastIrritation = useRef(10)
 
   useEffect(() => {
     const checkOrientation = () => {
@@ -35,6 +37,18 @@ export default function App() {
     return () => clearInterval(id)
   }, [])
 
+  // Trigger animations on threshold crossings
+  useEffect(() => {
+    if (comfort > 92 && lastComfort.current <= 92 && bunnyRef.current?.triggerBinky) {
+      bunnyRef.current.triggerBinky()
+    }
+    if (irritation > 65 && lastIrritation.current <= 65 && bunnyRef.current?.triggerThump) {
+      bunnyRef.current.triggerThump()
+    }
+    lastComfort.current = comfort
+    lastIrritation.current = irritation
+  }, [comfort, irritation])
+
   const handleZoneHit = useCallback((zone) => {
     if (zone === 'head') {
       setComfort(c => Math.min(100, c + (tool === 'brush' ? 4.5 : 3.2)))
@@ -43,13 +57,12 @@ export default function App() {
       setComfort(c => Math.min(100, c + (tool === 'brush' ? 3 : 1.8)))
       setIrritation(i => Math.max(0, i - 0.5))
     } else if (zone === 'hind') {
-      setIrritation(i => Math.min(100, i + 8))
+      setIrritation(i => Math.min(100, i + 9))
       setComfort(c => Math.max(0, c - 3))
     }
   }, [tool])
 
   const handleStroke = useCallback(() => {
-    // Fallback gentle gain if no zone
     setComfort(c => Math.min(100, c + 1))
   }, [])
 
