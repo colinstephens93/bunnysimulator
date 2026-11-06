@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, Environment, ContactShadows } from '@react-three/drei'
 import Bunny from './components/Bunny'
@@ -12,6 +12,7 @@ export default function App() {
   const [isLandscape, setIsLandscape] = useState(true)
   const [comfort, setComfort] = useState(40)
   const [irritation, setIrritation] = useState(10)
+  const bunnyRef = useRef()
 
   useEffect(() => {
     const checkOrientation = () => {
@@ -26,20 +27,30 @@ export default function App() {
     }
   }, [])
 
-  // Slowly decay states toward neutral
   useEffect(() => {
     const id = setInterval(() => {
-      setComfort(c => Math.max(0, c - 0.4))
-      setIrritation(i => Math.max(0, i - 0.6))
-    }, 200)
+      setComfort(c => Math.max(0, c - 0.35))
+      setIrritation(i => Math.max(0, i - 0.55))
+    }, 180)
     return () => clearInterval(id)
   }, [])
 
-  const handleStroke = useCallback((pointer, currentTool) => {
-    // Simple zone-agnostic feedback for now
-    const gain = currentTool === 'brush' ? 3 : 2
-    setComfort(c => Math.min(100, c + gain))
-    setIrritation(i => Math.max(0, i - 1))
+  const handleZoneHit = useCallback((zone) => {
+    if (zone === 'head') {
+      setComfort(c => Math.min(100, c + (tool === 'brush' ? 4.5 : 3.2)))
+      setIrritation(i => Math.max(0, i - 2))
+    } else if (zone === 'back') {
+      setComfort(c => Math.min(100, c + (tool === 'brush' ? 3 : 1.8)))
+      setIrritation(i => Math.max(0, i - 0.5))
+    } else if (zone === 'hind') {
+      setIrritation(i => Math.min(100, i + 8))
+      setComfort(c => Math.max(0, c - 3))
+    }
+  }, [tool])
+
+  const handleStroke = useCallback(() => {
+    // Fallback gentle gain if no zone
+    setComfort(c => Math.min(100, c + 1))
   }, [])
 
   return (
@@ -77,7 +88,12 @@ export default function App() {
         />
         <Environment preset="sunset" />
         <Bed />
-        <Bunny tool={tool} comfort={comfort} irritation={irritation} />
+        <Bunny
+          ref={bunnyRef}
+          comfort={comfort}
+          irritation={irritation}
+          onZoneHit={handleZoneHit}
+        />
         <Hand tool={tool} onStroke={handleStroke} />
         <ContactShadows position={[0, 0, 0]} opacity={0.4} scale={8} blur={2.5} far={4} />
         <OrbitControls enablePan={false} minPolarAngle={Math.PI / 3} maxPolarAngle={Math.PI / 2.2} />
