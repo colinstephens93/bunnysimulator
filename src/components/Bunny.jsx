@@ -536,15 +536,18 @@ export default function Bunny() {
       return
     }
     if (g.scene === 'bedroom' && Math.random() < 0.12) {
-      // Visit the duck plush and give it a nuzzle.
-      const px = 1.0
-      const pz = -0.5
-      goTo(px - 0.32, pz + 0.12, {
+      // Visit one of the plushes on the bed and give it a nuzzle.
+      const [px, pz, ax, az] = pick([
+        [1.0, -0.5, 0.68, -0.38], // duck
+        [-1.12, -0.98, -1.0, -0.62], // Hello Kitty
+        [-0.5, -1.0, -0.45, -0.62] // Miffy
+      ])
+      goTo(ax, az, {
         speed: 0.5,
         arrive: 0.08,
         onArrive: () => {
           world.bunny.yaw = Math.atan2(px - world.bunny.pos.x, pz - world.bunny.pos.z)
-          fx.burst('heart', _v.set(px - 0.12, 0.25, pz), 3, { scale: 0.8 })
+          fx.burst('heart', _v.set((px + ax) / 2, 0.3, (pz + az) / 2), 3, { scale: 0.8 })
           react('Yes', { speed: 0.8 })
         }
       })

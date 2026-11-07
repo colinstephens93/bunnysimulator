@@ -5,6 +5,7 @@ import * as THREE from 'three'
 import { quiltTexture, knitTexture, woodTexture, rugTexture, plasterTexture, skyTexture, nightSkyTexture, beamTexture } from '../textures'
 import { useGame } from '../store'
 import Plush from './Plush'
+import SittingPlushes from './SittingPlushes'
 
 const FLOOR_Y = -0.78
 
@@ -275,6 +276,7 @@ export default function Bedroom() {
       </group>
 
       <Plush />
+      <SittingPlushes />
 
       <Plant position={[-2.55, FLOOR_Y, -1.35]} />
 

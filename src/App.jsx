@@ -36,7 +36,7 @@ function CameraRig() {
 
   const reset = useRef(0)
   useFrame((_, dt) => {
-    if (!controls) return
+    if (!controls || world.freezeCamera) return // freezeCamera: dev screenshots only
     controls.enabled = !world.petting && !world.holdCamera
     const bun = world.bunny.pos
     if (world.resetCamera) {
