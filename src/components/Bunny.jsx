@@ -39,6 +39,8 @@ const BROW = 0.03 * SCALE // the face/forehead boundary sits this far above the 
 const OVERRIDDEN = ['Head', 'Ear_L', 'Ear_R', 'Jaw', 'Tail', 'Eye_L', 'Eye_R']
 const TICK_DIST = 0.07 // world units of stroke per "pet"
 const ROUGH_SPEED = 3.4 // world units / second
+const BRUSH_ROUGH_MULT = 1.7 // brush strokes are naturally quicker than petting
+const BRUSH_TOLERANCE = 0.2 // a brush is fine on the rump and paws, just not exciting
 
 const _v = new THREE.Vector3()
 const _v2 = new THREE.Vector3()
@@ -628,7 +630,9 @@ export default function Bunny() {
   const petTick = (zone, point) => {
     const s = b.current
     const g = useGame.getState()
-    const pref = PREFS[zone]
+    const brush = g.tool === 'brush'
+    // Brushing the rump or paws is part of grooming, so it never annoys.
+    const pref = brush && PREFS[zone] < 0 ? BRUSH_TOLERANCE : PREFS[zone]
     if (s.now < s.upsetUntil) return
     if (pref < 0) {
       s.annoy += 1
@@ -640,7 +644,6 @@ export default function Bunny() {
     }
     s.streak += 1
     s.lastTickAt = s.now
-    const brush = g.tool === 'brush'
     g.change({ joy: 1.8 * pref, bond: 0.14 * pref })
     g.progress(brush ? 'brush' : 'pet')
     s.squashV -= 0.6
@@ -656,7 +659,7 @@ export default function Bunny() {
       buzz(6)
       sfx.pet(Math.floor(s.streak / 3) % 11)
     }
-    if (s.streak === 4) toast(pick(LIKE_LINES[zone]), 4)
+    if (s.streak === 4 && LIKE_LINES[zone]) toast(pick(LIKE_LINES[zone]), 4)
     if (s.streak === 18) { toast('{n} is melting...', 0); sfx.purr() }
     if (s.streak > 18 && s.streak % 10 === 0) sfx.purr()
     if (s.streak === 40) toast('Tooth purrs! The happiest bunny sound', 0)
@@ -707,7 +710,8 @@ export default function Bunny() {
     s.accum += d
     s.zone = classify(e.point)
     group.current.worldToLocal(s.touchLocal.copy(e.point))
-    if (s.speedAvg > ROUGH_SPEED && s.moved > 0.15) {
+    const roughLimit = useGame.getState().tool === 'brush' ? ROUGH_SPEED * BRUSH_ROUGH_MULT : ROUGH_SPEED
+    if (s.speedAvg > roughLimit && s.moved > 0.15) {
       s.speedAvg = 0
       s.annoy += 1
       if (s.annoy >= 3) upset('rough')
