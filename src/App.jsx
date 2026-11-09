@@ -7,6 +7,7 @@ import * as THREE from 'three'
 import Bunny from './components/Bunny'
 import Bedroom from './components/Bedroom'
 import Garden from './components/Garden'
+import Friends from './components/Friends'
 import Particles, { fx } from './components/Particles'
 import { Ball, Items, throwBall, dropTreat, flingBall, kickBall } from './components/Toys'
 import UI from './components/UI'
@@ -188,6 +189,7 @@ function Scene() {
       </Environment>
       <PhotoCapture />
       <Bunny />
+      {scene === 'garden' && <Friends />}
       <Items />
       <Ball />
       <Particles />

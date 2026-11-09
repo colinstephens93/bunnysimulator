@@ -10,7 +10,7 @@ import { fx } from './Particles'
 import { sfx } from '../audio'
 import Icon from './Icons'
 
-const SCALE = 1.25
+export const SCALE = 1.25
 
 // How much the bunny enjoys being touched in each area (negative = dislikes).
 const PREFS = { face: 1.5, head: 1.3, back: 1.0, ears: 0.45, rump: -1, feet: -1 }
@@ -67,7 +67,7 @@ const fmt = (s) => s.replaceAll('{n}', useGame.getState().name)
 
 // Rotate a bone by an offset expressed in the bunny's own frame (x = side,
 // y = up, z = forward), layered on top of whatever the animation set.
-function rotateBoneInBunnyFrame(bone, groupQuat, euler) {
+export function rotateBoneInBunnyFrame(bone, groupQuat, euler) {
   _q.setFromEuler(euler)
   _q.premultiply(groupQuat).multiply(_q2.copy(groupQuat).invert()) // to world
   bone.parent.getWorldQuaternion(_q2)
@@ -1036,6 +1036,11 @@ export default function Bunny() {
     if (bones.Eye_R) bones.Eye_R.scale.y *= s.squint
 
     bones.Head?.getWorldPosition(bun.head)
+    bun.state = s.state
+    bun.clip = s.clip
+    bun.petting = liked
+    bun.upset = upsetNow
+    bun.spinning = s.spin > 0
 
     // A scruffy coat looks a little dull.
     s.dirtyTimer -= dt
