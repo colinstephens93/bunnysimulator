@@ -38,7 +38,9 @@ const BROW = 0.03 * SCALE // the face/forehead boundary sits this far above the 
 
 const OVERRIDDEN = ['Head', 'Ear_L', 'Ear_R', 'Jaw', 'Tail', 'Eye_L', 'Eye_R']
 const TICK_DIST = 0.07 // world units of stroke per "pet"
-const ROUGH_SPEED = 3.4 // world units / second
+const ROUGH_SPEED = 5 // world units / second
+const ANNOY_LIMIT = 6 // annoyances in quick succession before the bunny gets upset
+const ANNOY_DECAY = 1 // annoyances forgiven per second
 const BRUSH_ROUGH_MULT = 1.7 // brush strokes are naturally quicker than petting
 const BRUSH_TOLERANCE = 0.2 // a brush is fine on the rump and paws, just not exciting
 
@@ -638,7 +640,7 @@ export default function Bunny() {
       s.annoy += 1
       fx.burst('grump', point, 1)
       sfx.nope()
-      if (s.annoy >= 3) upset(zone)
+      if (s.annoy >= ANNOY_LIMIT) upset(zone)
       else toast(DISLIKE_LINES[zone], 2.5)
       return
     }
@@ -714,7 +716,7 @@ export default function Bunny() {
     if (s.speedAvg > roughLimit && s.moved > 0.15) {
       s.speedAvg = 0
       s.annoy += 1
-      if (s.annoy >= 3) upset('rough')
+      if (s.annoy >= ANNOY_LIMIT) upset('rough')
       else { toast(DISLIKE_LINES.rough, 2.5); sfx.nope() }
       return
     }
@@ -813,7 +815,7 @@ export default function Bunny() {
 
     if (s.petDown && now - s.lastTickAt > 1.5) s.streak = Math.max(0, s.streak - 1)
     if (!s.petDown && now - s.lastTickAt > 2) s.streak = 0
-    if (now - s.lastTickAt > 2) s.annoy = Math.max(0, s.annoy - dt * 0.5)
+    if (now - s.lastTickAt > 2) s.annoy = Math.max(0, s.annoy - dt * ANNOY_DECAY)
     const dozing = g.night && s.state === 'hold' && s.loaf
     g.setBubble(now < s.tiredUntil || dozing ? 'tired' : s.streak >= 18 ? 'melting' : null)
 
