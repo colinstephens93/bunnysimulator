@@ -33,12 +33,16 @@ const DISLIKE_LINES = {
   rough: 'Slower, gentler strokes'
 }
 
+const EAR_REACH = 0.07 * SCALE // how far from an ear's axis still counts as the ear
+const BROW = 0.03 * SCALE // the face/forehead boundary sits this far above the eyes
+
 const OVERRIDDEN = ['Head', 'Ear_L', 'Ear_R', 'Jaw', 'Tail', 'Eye_L', 'Eye_R']
 const TICK_DIST = 0.07 // world units of stroke per "pet"
 const ROUGH_SPEED = 3.4 // world units / second
 
 const _v = new THREE.Vector3()
 const _v2 = new THREE.Vector3()
+const _v3 = new THREE.Vector3()
 const _q = new THREE.Quaternion()
 const _q2 = new THREE.Quaternion()
 const _e = new THREE.Euler()
@@ -100,7 +104,7 @@ function buildAccessories(bones) {
   }
   const knot = new THREE.Mesh(new THREE.SphereGeometry(0.013, 12, 10), std('#ff4f86'))
   bow.add(knot)
-  place('bow', 'Head', bow, [0.07, 0.53, 0.15], [0.1, 0, -0.45])
+  place('bow', 'Head', bow, [0.07, 0.49, 0.13], [0.1, 0, -0.45])
 
   // Flower crown.
   const crown = new THREE.Group()
@@ -118,7 +122,7 @@ function buildAccessories(bones) {
     c.position.set(Math.cos(a) * 0.1, 0.022, Math.sin(a) * 0.1)
     crown.add(c)
   }
-  place('crown', 'Head', crown, [0, 0.515, 0.15], [0.22, 0, 0])
+  place('crown', 'Head', crown, [0, 0.46, 0.14], [0.22, 0, 0])
 
   // Party hat.
   const hat = new THREE.Group()
@@ -131,7 +135,7 @@ function buildAccessories(bones) {
   const pom = new THREE.Mesh(new THREE.IcosahedronGeometry(0.018, 2), std('#ffd166'))
   pom.position.y = 0.07
   hat.add(pom)
-  place('hat', 'Head', hat, [-0.025, 0.6, 0.16], [0.1, 0, 0.25])
+  place('hat', 'Head', hat, [-0.025, 0.55, 0.14], [0.1, 0, 0.25])
 
   // Knitted scarf.
   const scarf = new THREE.Group()
@@ -148,7 +152,7 @@ function buildAccessories(bones) {
   fringe.position.set(0.075, -0.1, 0.125)
   fringe.rotation.set(0.3, 0, 0.25)
   scarf.add(fringe)
-  place('scarf', 'Neck', scarf, [0, 0.29, 0.06], [0.28, 0, 0])
+  place('scarf', 'Neck', scarf, [0, 0.21, 0.06], [0.28, 0, 0])
 
   return out
 }
@@ -202,7 +206,7 @@ export default function Bunny() {
       if (!eye || !bones.Head) continue
       const p = eye.getWorldPosition(new THREE.Vector3())
       const sx = Math.sign(p.x) || 1
-      p.add(new THREE.Vector3(sx * 0.014, -0.045, -0.008))
+      p.add(new THREE.Vector3(sx * 0.02, -0.04, 0.01))
       const center = bones.Head.getWorldPosition(new THREE.Vector3())
       const out = p.clone().sub(center).setY(0).normalize()
       p.addScaledVector(out, 0.006)
@@ -577,6 +581,21 @@ export default function Bunny() {
 
   // ---------------- petting ----------------
 
+  // Is the point within reach of either ear? The ear mesh runs well past the
+  // tip bone, so measure to the ear's axis extended 1.6x past the joint-to-tip.
+  const onEar = (point) => {
+    for (const side of ['L', 'R']) {
+      const base = bones[`Ear_${side}`]
+      const tip = bones[`Ear_Tip_${side}`]
+      if (!base || !tip) continue
+      base.getWorldPosition(_v2)
+      tip.getWorldPosition(_v3).sub(_v2)
+      const t = THREE.MathUtils.clamp(_v.copy(point).sub(_v2).dot(_v3) / _v3.lengthSq(), 0, 1.6)
+      if (_v.copy(point).sub(_v2).addScaledVector(_v3, -t).length() < EAR_REACH) return true
+    }
+    return false
+  }
+
   const classify = (point) => {
     let best = null
     let bestD = Infinity
@@ -588,10 +607,20 @@ export default function Bunny() {
       if (d < bestD) { bestD = d; best = name }
     }
     let zone = ZONE_OF_BONE[best] || 'back'
-    if (zone === 'head') {
-      const lp = group.current.worldToLocal(_v.copy(point))
-      const hp = group.current.worldToLocal(bones.Head.getWorldPosition(_v2))
-      if (lp.z > hp.z + 0.06) zone = 'face'
+    // The ear joints sit on top of the skull, so the dome and forehead are
+    // nearer to them than to any head joint. Only call it an ear when the
+    // point is really on the ear itself.
+    if (zone === 'ears' && !onEar(point)) zone = 'head'
+    if (zone === 'head' || zone === 'face') {
+      zone = 'head'
+      if (best !== 'Neck') {
+        // In front of the head pivot, below the brow line is the face
+        // (cheeks, nose, chin); above it is the forehead.
+        const lp = group.current.worldToLocal(_v.copy(point))
+        const hp = group.current.worldToLocal(bones.Head.getWorldPosition(_v2))
+        const eye = group.current.worldToLocal(bones.Eye_L.getWorldPosition(_v3))
+        if (lp.z > hp.z + 0.06 && lp.y < eye.y + BROW) zone = 'face'
+      }
     }
     return zone
   }
