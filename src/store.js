@@ -56,7 +56,7 @@ export const isNightHour = (d = new Date()) => d.getHours() >= 21 || d.getHours(
 const SETTINGS_KEY = 'hannahsBunny.settings'
 const prefersReducedMotion = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches
 function loadSettings() {
-  const def = { muted: false, music: 0.7, sfx: 0.8, haptics: true, reduceMotion: prefersReducedMotion, lowPower: false }
+  const def = { muted: false, music: 0.7, sfx: 0.8, haptics: true, reduceMotion: prefersReducedMotion, lowPower: false, bunnyModel: 'new' }
   try { return { ...def, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') } } catch (e) { return def }
 }
 

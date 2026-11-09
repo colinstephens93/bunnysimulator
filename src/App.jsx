@@ -177,6 +177,7 @@ function Scene() {
   const scene = useGame((s) => s.scene)
   const night = useGame((s) => s.night) && scene === 'bedroom'
   const lowPower = useGame((s) => s.settings.lowPower)
+  const model = useGame((s) => s.settings.bunnyModel)
   const k = night ? 0.35 : 1
   return (
     <>
@@ -188,8 +189,8 @@ function Scene() {
         <Lightformer form="rect" intensity={0.5 * k} color="#fff" position={[0, 6, 0]} rotation-x={Math.PI / 2} scale={[6, 6, 1]} />
       </Environment>
       <PhotoCapture />
-      <Bunny />
-      {scene === 'garden' && <Friends />}
+      <Bunny key={model} />
+      {scene === 'garden' && <Friends key={model} />}
       <Items />
       <Ball />
       <Particles />

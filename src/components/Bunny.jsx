@@ -9,6 +9,7 @@ import { world, clampToBounds } from '../world'
 import { fx } from './Particles'
 import { sfx } from '../audio'
 import Icon from './Icons'
+import { BUNNY_MODELS, bunnyModel } from '../bunnyModels'
 
 export const SCALE = 1.25
 
@@ -78,10 +79,11 @@ export function rotateBoneInBunnyFrame(bone, groupQuat, euler) {
 
 // Accessories are modelled in the bunny's rest-pose space, then parented to a
 // bone so they follow the animation.
-function buildAccessories(bones) {
+function buildAccessories(bones, fit) {
   const std = (color, extra = {}) => new THREE.MeshPhysicalMaterial({ color, roughness: 0.6, sheen: 0.6, sheenColor: new THREE.Color('#ffffff'), ...extra })
   const out = {}
-  const place = (id, boneName, group, pos, rot = [0, 0, 0]) => {
+  const place = (id, group) => {
+    const { bone: boneName, pos, rot } = fit[id]
     const bone = bones[boneName]
     if (!bone) return
     group.position.set(...pos)
@@ -108,7 +110,7 @@ function buildAccessories(bones) {
   }
   const knot = new THREE.Mesh(new THREE.SphereGeometry(0.013, 12, 10), std('#ff4f86'))
   bow.add(knot)
-  place('bow', 'Head', bow, [0.07, 0.49, 0.13], [0.1, 0, -0.45])
+  place('bow', bow)
 
   // Flower crown.
   const crown = new THREE.Group()
@@ -126,7 +128,7 @@ function buildAccessories(bones) {
     c.position.set(Math.cos(a) * 0.1, 0.022, Math.sin(a) * 0.1)
     crown.add(c)
   }
-  place('crown', 'Head', crown, [0, 0.46, 0.14], [0.22, 0, 0])
+  place('crown', crown)
 
   // Party hat.
   const hat = new THREE.Group()
@@ -139,7 +141,7 @@ function buildAccessories(bones) {
   const pom = new THREE.Mesh(new THREE.IcosahedronGeometry(0.018, 2), std('#ffd166'))
   pom.position.y = 0.07
   hat.add(pom)
-  place('hat', 'Head', hat, [-0.025, 0.55, 0.14], [0.1, 0, 0.25])
+  place('hat', hat)
 
   // Knitted scarf.
   const scarf = new THREE.Group()
@@ -156,13 +158,14 @@ function buildAccessories(bones) {
   fringe.position.set(0.075, -0.1, 0.125)
   fringe.rotation.set(0.3, 0, 0.25)
   scarf.add(fringe)
-  place('scarf', 'Neck', scarf, [0, 0.21, 0.06], [0.28, 0, 0])
+  place('scarf', scarf)
 
   return out
 }
 
 export default function Bunny() {
-  const gltf = useGLTF('/bunny.glb')
+  const design = bunnyModel(useGame((s) => s.settings.bunnyModel))
+  const gltf = useGLTF(design.url)
   const group = useRef()
   const body = useRef()
 
@@ -210,7 +213,7 @@ export default function Bunny() {
       if (!eye || !bones.Head) continue
       const p = eye.getWorldPosition(new THREE.Vector3())
       const sx = Math.sign(p.x) || 1
-      p.add(new THREE.Vector3(sx * 0.02, -0.04, 0.01))
+      p.add(new THREE.Vector3(sx * design.blush[0], design.blush[1], design.blush[2]))
       const center = bones.Head.getWorldPosition(new THREE.Vector3())
       const out = p.clone().sub(center).setY(0).normalize()
       p.addScaledVector(out, 0.006)
@@ -220,9 +223,9 @@ export default function Bunny() {
       m.renderOrder = 2
       bones.Head.attach(m)
     }
-    const accessories = buildAccessories(bones)
+    const accessories = buildAccessories(bones, design.accessories)
     return { model, bones, furMats, blushMat, accessories }
-  }, [gltf])
+  }, [gltf, design])
 
   // Show the accessories the player chose.
   const wardrobe = useGame((st) => st.wardrobe)
@@ -1080,4 +1083,4 @@ function Bubble() {
   )
 }
 
-useGLTF.preload('/bunny.glb')
+for (const m of Object.values(BUNNY_MODELS)) useGLTF.preload(m.url)

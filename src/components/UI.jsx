@@ -4,6 +4,7 @@ import { sendCommand, world } from '../world'
 import { placeBowl } from './Toys'
 import { sfx } from '../audio'
 import Icon from './Icons'
+import { BUNNY_MODELS } from '../bunnyModels'
 
 const TOOLS = [
   { id: 'pet', label: 'Pet', icon: 'hand', tip: 'Stroke slowly over the head and cheeks. Double-tap the floor to call the bunny over' },
@@ -219,6 +220,19 @@ function Toggle({ label, note, value, onChange }) {
   )
 }
 
+function Choice({ label, options, value, onChange }) {
+  return (
+    <div className="setting stack">
+      <span>{label}</span>
+      <div className="seg" role="radiogroup" aria-label={label}>
+        {options.map(([id, text]) => (
+          <button key={id} role="radio" aria-checked={value === id} className={value === id ? 'on' : ''} onClick={() => { sfx.click(); onChange(id) }}>{text}</button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function Slider({ label, value, onChange, disabled }) {
   return (
     <label className={`setting ${disabled ? 'disabled' : ''}`}>
@@ -237,6 +251,7 @@ function SettingsPanel({ onClose }) {
         <span>Settings</span>
         <button className="panel-close" onClick={onClose} aria-label="Close"><Icon name="close" size={16} /></button>
       </div>
+      <Choice label="Bunny design" options={Object.entries(BUNNY_MODELS).map(([id, m]) => [id, m.label])} value={st.bunnyModel} onChange={(v) => set('bunnyModel', v)} />
       <Toggle label="Sound" value={!st.muted} onChange={(v) => set('muted', !v)} />
       <Slider label="Music" value={st.music} disabled={st.muted} onChange={(v) => set('music', v)} />
       <Slider label="Effects" value={st.sfx} disabled={st.muted} onChange={(v) => set('sfx', v)} />
