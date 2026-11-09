@@ -7,6 +7,7 @@ import { useGame } from '../store'
 import { world, clampToBounds } from '../world'
 import { fx } from './Particles'
 import { SCALE, rotateBoneInBunnyFrame } from './Bunny'
+import { bunnyModel } from '../bunnyModels'
 
 // Two bunny friends that live in the garden. They keep the player's bunny
 // company and copy what it does: eat when it eats, sit when it sits, hop when
@@ -69,7 +70,7 @@ export default function Friends() {
 }
 
 function Friend({ cfg }) {
-  const gltf = useGLTF('/bunny.glb')
+  const gltf = useGLTF(bunnyModel(useGame((s) => s.settings.bunnyModel)).url)
   const group = useRef()
   const lowPower = useGame((s) => s.settings.lowPower)
 
