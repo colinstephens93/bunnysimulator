@@ -15,7 +15,9 @@ export const world = {
   bunny: {
     pos: new THREE.Vector3(0, 0, 0.15),
     yaw: 0,
-    head: new THREE.Vector3(0, 0.45, 0.15)
+    head: new THREE.Vector3(0, 0.45, 0.15),
+    // What the main bunny is doing right now; companions react to this.
+    state: 'idle', clip: 'Idle', petting: false, upset: false, spinning: false
   },
   ball: {
     active: false,
