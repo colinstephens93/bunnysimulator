@@ -5,7 +5,7 @@
 export const BUNNY_MODELS = {
   new: {
     label: 'New',
-    url: '/bunny.glb',
+    url: import.meta.env.BASE_URL + 'bunny.glb',
     blush: [0.02, -0.04, 0.01], // offset from each eye to the cheek
     accessories: {
       bow: { bone: 'Head', pos: [0.07, 0.49, 0.13], rot: [0.1, 0, -0.45] },
@@ -16,7 +16,7 @@ export const BUNNY_MODELS = {
   },
   classic: {
     label: 'Classic',
-    url: '/bunny-classic.glb',
+    url: import.meta.env.BASE_URL + 'bunny-classic.glb',
     blush: [0.014, -0.045, -0.008],
     accessories: {
       bow: { bone: 'Head', pos: [0.07, 0.53, 0.15], rot: [0.1, 0, -0.45] },
